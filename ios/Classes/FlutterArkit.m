@@ -74,37 +74,41 @@
   if ([[call method] isEqualToString:@"init"]) {
     [self init:call result:result];
   } else if ([[call method] isEqualToString:@"addARKitNode"]) {
-      [self onAddNode:call result:result];
+    [self onAddNode:call result:result];
   } else if ([[call method] isEqualToString:@"removeARKitNode"]) {
-      [self onRemoveNode:call result:result];
+    [self onRemoveNode:call result:result];
   } else if ([[call method] isEqualToString:@"getNodeBoundingBox"]) {
-      [self onGetNodeBoundingBox:call result:result];
+    [self onGetNodeBoundingBox:call result:result];
   } else if ([[call method] isEqualToString:@"positionChanged"]) {
-      [self updatePosition:call andResult:result];
+    [self updatePosition:call andResult:result];
   } else if ([[call method] isEqualToString:@"rotationChanged"]) {
-      [self updateRotation:call andResult:result];
+    [self updateRotation:call andResult:result];
   } else if ([[call method] isEqualToString:@"eulerAnglesChanged"]) {
-      [self updateEulerAngles:call andResult:result];
+    [self updateEulerAngles:call andResult:result];
   } else if ([[call method] isEqualToString:@"scaleChanged"]) {
-      [self updateScale:call andResult:result];
+    [self updateScale:call andResult:result];
   } else if ([[call method] isEqualToString:@"updateSingleProperty"]) {
-      [self updateSingleProperty:call andResult:result];
+    [self updateSingleProperty:call andResult:result];
   } else if ([[call method] isEqualToString:@"updateMaterials"]) {
-      [self updateMaterials:call andResult:result];
+    [self updateMaterials:call andResult:result];
   } else if ([[call method] isEqualToString:@"updateFaceGeometry"]) {
-      [self updateFaceGeometry:call andResult:result];
+    [self updateFaceGeometry:call andResult:result];
   } else if ([[call method] isEqualToString:@"getLightEstimate"]) {
-      [self onGetLightEstimate:call andResult:result];
+    [self onGetLightEstimate:call andResult:result];
   } else if ([[call method] isEqualToString:@"projectPoint"]) {
-      [self onProjectPoint:call andResult:result];
+    [self onProjectPoint:call andResult:result];
   } else if ([[call method] isEqualToString:@"cameraProjectionMatrix"]) {
-      [self onCameraProjectionMatrix:call andResult:result];
+    [self onCameraProjectionMatrix:call andResult:result];
   } else if ([[call method] isEqualToString:@"playAnimation"]) {
-      [self onPlayAnimation:call andResult:result];
+    [self onPlayAnimation:call andResult:result];
   } else if ([[call method] isEqualToString:@"stopAnimation"]) {
-      [self onStopAnimation:call andResult:result];
+    [self onStopAnimation:call andResult:result];
   } else if ([[call method] isEqualToString:@"dispose"]) {
-      [self.sceneView.session pause];
+    [self.sceneView.session pause];
+  } else if ([[call method] isEqualToString:@"initStartWorldTrackingSessionWithImage"]) {
+    [self initStartWorldTrackingSessionWithImage:call result:result];
+  } else if ([[call method] isEqualToString:@"addImageRunWithConfigAndImage"]) {
+    [self addImageRunWithConfigAndImage:call result:result];
   } else {
     result(FlutterMethodNotImplemented);
   }
@@ -144,6 +148,78 @@
 
     [self.sceneView.session runWithConfiguration:[self configuration]];
     result(nil);
+}
+
+///
+/// Dynamic loading ARKitImageAnchor
+///
+static NSMutableSet *g_mSet = NULL;
+
+- (void)initStartWorldTrackingSessionWithImage:(FlutterMethodCall*)call result:(FlutterResult)result {
+    NSNumber* showStatistics = call.arguments[@"showStatistics"];
+    self.sceneView.showsStatistics = [showStatistics boolValue];
+  
+    NSNumber* autoenablesDefaultLighting = call.arguments[@"autoenablesDefaultLighting"];
+    self.sceneView.autoenablesDefaultLighting = [autoenablesDefaultLighting boolValue];
+    
+    NSNumber* forceUserTapOnCenter = call.arguments[@"forceUserTapOnCenter"];
+    self.forceUserTapOnCenter = [forceUserTapOnCenter boolValue];
+  
+    NSNumber* requestedPlaneDetection = call.arguments[@"planeDetection"];
+    self.planeDetection = [self getPlaneFromNumber:[requestedPlaneDetection intValue]];
+    
+    if ([call.arguments[@"enableTapRecognizer"] boolValue]) {
+        UITapGestureRecognizer *tapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTapFrom:)];
+        [self.sceneView addGestureRecognizer:tapGestureRecognizer];
+    }
+    
+    if ([call.arguments[@"enablePinchRecognizer"] boolValue]) {
+        UIPinchGestureRecognizer *pinchGestureRecognizer = [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(handlePinchFrom:)];
+        [self.sceneView addGestureRecognizer:pinchGestureRecognizer];
+    }
+    
+    if ([call.arguments[@"enablePanRecognizer"] boolValue]) {
+        UIPanGestureRecognizer *panGestureRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePanFrom:)];
+        [self.sceneView addGestureRecognizer:panGestureRecognizer];
+    }
+    
+    self.sceneView.debugOptions = [self getDebugOptions:call.arguments];
+    
+    _configuration = [self buildConfiguration: call.arguments];
+
+    // [self.sceneView.session runWithConfiguration:[self configuration]];
+    g_mSet = [[NSMutableSet alloc ]init];
+
+    result(nil);
+}
+
+- (void)addImageRunWithConfigAndImage:(FlutterMethodCall*)call result:(FlutterResult)result {
+    NSNumber* imageLength = call.arguments[@"imageLength"];
+    NSString* imageName = call.arguments[@"imageName"];
+    NSNumber* markerSizeMeter = call.arguments[@"markerSizeMeter"];
+
+    NSData* imageData = [[NSData alloc] initWithBytes:XXXX length:imageLength];
+    UIImage* uiimage = [[UIImage alloc] initWithData:imageData];
+    CGImageRef cgImage = [uiimage CGImage];
+    
+    ARReferenceImage *image = [[ARReferenceImage alloc] initWithCGImage:cgImage orientation:kCGImagePropertyOrientationUp physicalWidth:markerSizeMeter];
+    
+    image.name = [NSString stringWithUTF8String:imageName];
+    [g_mSet addObject:image];
+
+    result(nil);
+}
+
+- (void)startWorldTrackingSessionWithImage:(FlutterMethodCall*)call result:(FlutterResult)result {
+    NSNumber* runOpts = call.arguments[@"runOpts"];
+
+    // ARWorldTrackingConfigurationのみ
+    (_configuration as? ARWorldTrackingConfiguration).detectionImages = g_mSet;
+    
+    [self.sceneView.session runWithConfiguration:[self configuration] options:runOpts];
+
+    // TODO メモリ解放必要？
+    // g_mSet
 }
 
 - (ARConfiguration*) buildConfiguration: (NSDictionary*)params {
