@@ -194,29 +194,29 @@ static NSMutableSet *g_mSet = NULL;
 }
 
 - (void)addImageRunWithConfigAndImage:(FlutterMethodCall*)call result:(FlutterResult)result {
-    NSNumber* imageLength = call.arguments[@"imageLength"];
-    NSString* imageName = call.arguments[@"imageName"];
-    NSNumber* markerSizeMeter = call.arguments[@"markerSizeMeter"];
+    // NSNumber* imageLength = call.arguments[@"imageLength"];
+    // NSString* imageName = call.arguments[@"imageName"];
+    // NSNumber* markerSizeMeter = call.arguments[@"markerSizeMeter"];
 
-    NSData* imageData = [[NSData alloc] initWithBytes:XXXX length:imageLength];
-    UIImage* uiimage = [[UIImage alloc] initWithData:imageData];
-    CGImageRef cgImage = [uiimage CGImage];
+    // NSData* imageData = [[NSData alloc] initWithBytes:XXXX length:imageLength];
+    // UIImage* uiimage = [[UIImage alloc] initWithData:imageData];
+    // CGImageRef cgImage = [uiimage CGImage];
     
-    ARReferenceImage *image = [[ARReferenceImage alloc] initWithCGImage:cgImage orientation:kCGImagePropertyOrientationUp physicalWidth:markerSizeMeter];
+    // ARReferenceImage *image = [[ARReferenceImage alloc] initWithCGImage:cgImage orientation:kCGImagePropertyOrientationUp physicalWidth:markerSizeMeter];
     
-    image.name = [NSString stringWithUTF8String:imageName];
-    [g_mSet addObject:image];
+    // image.name = [NSString stringWithUTF8String:imageName];
+    // [g_mSet addObject:image];
 
     result(nil);
 }
 
 - (void)startWorldTrackingSessionWithImage:(FlutterMethodCall*)call result:(FlutterResult)result {
-    NSNumber* runOpts = call.arguments[@"runOpts"];
+    // NSNumber* runOpts = call.arguments[@"runOpts"];
 
-    // ARWorldTrackingConfigurationのみ
-    (_configuration as? ARWorldTrackingConfiguration).detectionImages = g_mSet;
+    // // ARWorldTrackingConfigurationのみ
+    // (_configuration as? ARWorldTrackingConfiguration).detectionImages = g_mSet;
     
-    [self.sceneView.session runWithConfiguration:[self configuration] options:runOpts];
+    // [self.sceneView.session runWithConfiguration:[self configuration] options:runOpts];
 
     // TODO メモリ解放必要？
     // g_mSet
