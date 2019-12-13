@@ -194,18 +194,28 @@ static NSMutableSet *g_mSet = NULL;
 }
 
 - (void)addImageRunWithConfigAndImage:(FlutterMethodCall*)call result:(FlutterResult)result {
-    // NSNumber* imageLength = call.arguments[@"imageLength"];
-    // NSString* imageName = call.arguments[@"imageName"];
-    // NSNumber* markerSizeMeter = call.arguments[@"markerSizeMeter"];
+    NSNumber* imageLengthNSNumber = call.arguments[@"imageLength"];
+    double imageLength = [imageLengthNSNumber doubleValue];
+    // FlutterStandardTypedData* imageDataWithFlutter = call.arguments[@"imageData"];
+    // NSData* imageData = (FlutterStandardTypedData*)(call.arguments[@"imageData"]);
+    NSData* imageData = [((FlutterStandardTypedData*) call.arguments[@"imageBytes"]) data];
+    NSString* imageNameNSString = call.arguments[@"imageName"];
+    NSNumber* markerSizeMeterNSNumber = call.arguments[@"markerSizeMeter"];
+    double markerSizeMeter = [markerSizeMeterNSNumber doubleValue];
+
+    //   'imageBytes': bytes,
+    //   'imageLength': lengthInBytes,
+    //   'imageName': imageName,
+    //   'markerSizeMeter': markerSizeMeter,
 
     // NSData* imageData = [[NSData alloc] initWithBytes:XXXX length:imageLength];
-    // UIImage* uiimage = [[UIImage alloc] initWithData:imageData];
-    // CGImageRef cgImage = [uiimage CGImage];
+    UIImage* uiimage = [[UIImage alloc] initWithData:imageData];
+    CGImageRef cgImage = [uiimage CGImage];
     
-    // ARReferenceImage *image = [[ARReferenceImage alloc] initWithCGImage:cgImage orientation:kCGImagePropertyOrientationUp physicalWidth:markerSizeMeter];
+    ARReferenceImage *image = [[ARReferenceImage alloc] initWithCGImage:cgImage orientation:kCGImagePropertyOrientationUp physicalWidth:markerSizeMeter];
     
-    // image.name = [NSString stringWithUTF8String:imageName];
-    // [g_mSet addObject:image];
+    image.name = imageNameNSString;
+    [g_mSet addObject:image];
 
     result(nil);
 }
