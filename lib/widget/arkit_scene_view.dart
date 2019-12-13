@@ -203,6 +203,62 @@ class ARKitController {
     });
   }
 
+///
+/// Dynamic loading ARKitImageAnchor
+///
+  ARKitController.initStartWorldTrackingSessionWithImage(
+    int id,
+    ARKitConfiguration configuration,
+    bool showStatistics,
+    bool autoenablesDefaultLighting,
+    bool enableTapRecognizer,
+    bool showFeaturePoints,
+    bool showWorldOrigin,
+    bool enablePinchRecognizer,
+    bool enablePanRecognizer,
+    ARPlaneDetection planeDetection,
+    ARWorldAlignment worldAlignment,
+    // String detectionImagesGroupName,
+    // String trackingImagesGroupName,
+    bool forceUserTapOnCenter,
+    this.debug,
+  ) {
+    _channel = MethodChannel('arkit_$id');
+    _channel.setMethodCallHandler(_platformCallHandler);
+    _channel.invokeMethod<void>('initStartWorldTrackingSessionWithImage', {
+      'configuration': configuration.index,
+      'showStatistics': showStatistics,
+      'autoenablesDefaultLighting': autoenablesDefaultLighting,
+      'enableTapRecognizer': enableTapRecognizer,
+      'enablePinchRecognizer': enablePinchRecognizer,
+      'enablePanRecognizer': enablePanRecognizer,
+      'planeDetection': planeDetection.index,
+      'showFeaturePoints': showFeaturePoints,
+      'showWorldOrigin': showWorldOrigin,
+      // 'detectionImagesGroupName': detectionImagesGroupName,
+      // 'trackingImagesGroupName': trackingImagesGroupName,
+      'forceUserTapOnCenter': forceUserTapOnCenter,
+      'worldAlignment': worldAlignment.index,
+    });
+  }
+
+  void addImageRunWithConfigAndImage(ByteData bytes, int lengthInBytes, String imageName, double markerSizeMeter) {
+    _channel.setMethodCallHandler(_platformCallHandler);
+    _channel.invokeMethod<void>('addImageRunWithConfigAndImage', {
+      'imageBytes': bytes,
+      'imageLength': lengthInBytes,
+      'imageName': imageName,
+      'markerSizeMeter': markerSizeMeter,
+    });
+  }
+
+  void startWorldTrackingSessionWithImage(int runOptions) {
+    _channel.setMethodCallHandler(_platformCallHandler);
+    _channel.invokeMethod<void>('startWorldTrackingSessionWithImage', {
+      'runOptions': runOptions,
+    });
+  }
+  
   MethodChannel _channel;
 
   /// This is called when a session fails.
