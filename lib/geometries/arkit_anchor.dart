@@ -77,6 +77,8 @@ class ARKitImageAnchor extends ARKitAnchor {
   final String referenceImageName;
   final Vector2 referenceImagePhysicalSize;
 
+  bool isTracked;
+
   static ARKitImageAnchor fromMap(Map<String, String> map) => ARKitImageAnchor(
         map['referenceImageName'],
         createVector2FromString(map['referenceImagePhysicalSize']),

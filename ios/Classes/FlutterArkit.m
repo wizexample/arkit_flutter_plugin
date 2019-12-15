@@ -54,7 +54,9 @@
   if ([super init]) {
     _viewId = viewId;
     _sceneView = [[ARSCNView alloc] initWithFrame:frame];
-    NSString* channelName = [NSString stringWithFormat:@"arkit_%lld", viewId];
+
+    NSString* channelName = [NSString stringWithFormat:@"arkit", viewId];
+    NSLog(@"####### channelName=%@", channelName);
     _channel = [FlutterMethodChannel methodChannelWithName:channelName binaryMessenger:messenger];
     __weak __typeof__(self) weakSelf = self;
     [_channel setMethodCallHandler:^(FlutterMethodCall* call, FlutterResult result) {
@@ -71,9 +73,9 @@
 }
 
 - (void)onMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
-  if ([[call method] isEqualToString:@"init"]) {
-    [self init:call result:result];
-  } else if ([[call method] isEqualToString:@"addARKitNode"]) {
+//   if ([[call method] isEqualToString:@"init"]) {
+//     [self init:call result:result];
+  if ([[call method] isEqualToString:@"addARKitNode"]) {
     [self onAddNode:call result:result];
   } else if ([[call method] isEqualToString:@"removeARKitNode"]) {
     [self onRemoveNode:call result:result];
@@ -109,46 +111,48 @@
     [self initStartWorldTrackingSessionWithImage:call result:result];
   } else if ([[call method] isEqualToString:@"addImageRunWithConfigAndImage"]) {
     [self addImageRunWithConfigAndImage:call result:result];
+  } else if ([[call method] isEqualToString:@"startWorldTrackingSessionWithImage"]) {
+    [self startWorldTrackingSessionWithImage:call result:result];
   } else {
     result(FlutterMethodNotImplemented);
   }
 }
 
-- (void)init:(FlutterMethodCall*)call result:(FlutterResult)result {
-    NSNumber* showStatistics = call.arguments[@"showStatistics"];
-    self.sceneView.showsStatistics = [showStatistics boolValue];
+// - (void)init:(FlutterMethodCall*)call result:(FlutterResult)result {
+//     NSNumber* showStatistics = call.arguments[@"showStatistics"];
+//     self.sceneView.showsStatistics = [showStatistics boolValue];
   
-    NSNumber* autoenablesDefaultLighting = call.arguments[@"autoenablesDefaultLighting"];
-    self.sceneView.autoenablesDefaultLighting = [autoenablesDefaultLighting boolValue];
+//     NSNumber* autoenablesDefaultLighting = call.arguments[@"autoenablesDefaultLighting"];
+//     self.sceneView.autoenablesDefaultLighting = [autoenablesDefaultLighting boolValue];
     
-    NSNumber* forceUserTapOnCenter = call.arguments[@"forceUserTapOnCenter"];
-    self.forceUserTapOnCenter = [forceUserTapOnCenter boolValue];
+//     NSNumber* forceUserTapOnCenter = call.arguments[@"forceUserTapOnCenter"];
+//     self.forceUserTapOnCenter = [forceUserTapOnCenter boolValue];
   
-    NSNumber* requestedPlaneDetection = call.arguments[@"planeDetection"];
-    self.planeDetection = [self getPlaneFromNumber:[requestedPlaneDetection intValue]];
+//     NSNumber* requestedPlaneDetection = call.arguments[@"planeDetection"];
+//     self.planeDetection = [self getPlaneFromNumber:[requestedPlaneDetection intValue]];
     
-    if ([call.arguments[@"enableTapRecognizer"] boolValue]) {
-        UITapGestureRecognizer *tapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTapFrom:)];
-        [self.sceneView addGestureRecognizer:tapGestureRecognizer];
-    }
+//     if ([call.arguments[@"enableTapRecognizer"] boolValue]) {
+//         UITapGestureRecognizer *tapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTapFrom:)];
+//         [self.sceneView addGestureRecognizer:tapGestureRecognizer];
+//     }
     
-    if ([call.arguments[@"enablePinchRecognizer"] boolValue]) {
-        UIPinchGestureRecognizer *pinchGestureRecognizer = [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(handlePinchFrom:)];
-        [self.sceneView addGestureRecognizer:pinchGestureRecognizer];
-    }
+//     if ([call.arguments[@"enablePinchRecognizer"] boolValue]) {
+//         UIPinchGestureRecognizer *pinchGestureRecognizer = [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(handlePinchFrom:)];
+//         [self.sceneView addGestureRecognizer:pinchGestureRecognizer];
+//     }
     
-    if ([call.arguments[@"enablePanRecognizer"] boolValue]) {
-        UIPanGestureRecognizer *panGestureRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePanFrom:)];
-        [self.sceneView addGestureRecognizer:panGestureRecognizer];
-    }
+//     if ([call.arguments[@"enablePanRecognizer"] boolValue]) {
+//         UIPanGestureRecognizer *panGestureRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePanFrom:)];
+//         [self.sceneView addGestureRecognizer:panGestureRecognizer];
+//     }
     
-    self.sceneView.debugOptions = [self getDebugOptions:call.arguments];
+//     self.sceneView.debugOptions = [self getDebugOptions:call.arguments];
     
-    _configuration = [self buildConfiguration: call.arguments];
+//     _configuration = [self buildConfiguration: call.arguments];
 
-    [self.sceneView.session runWithConfiguration:[self configuration]];
-    result(nil);
-}
+//     [self.sceneView.session runWithConfiguration:[self configuration]];
+//     result(nil);
+// }
 
 ///
 /// Dynamic loading ARKitImageAnchor
@@ -196,19 +200,17 @@ static NSMutableSet *g_mSet = NULL;
 - (void)addImageRunWithConfigAndImage:(FlutterMethodCall*)call result:(FlutterResult)result {
     NSNumber* imageLengthNSNumber = call.arguments[@"imageLength"];
     double imageLength = [imageLengthNSNumber doubleValue];
-    // FlutterStandardTypedData* imageDataWithFlutter = call.arguments[@"imageData"];
-    // NSData* imageData = (FlutterStandardTypedData*)(call.arguments[@"imageData"]);
     NSData* imageData = [((FlutterStandardTypedData*) call.arguments[@"imageBytes"]) data];
     NSString* imageNameNSString = call.arguments[@"imageName"];
     NSNumber* markerSizeMeterNSNumber = call.arguments[@"markerSizeMeter"];
     double markerSizeMeter = [markerSizeMeterNSNumber doubleValue];
+    NSLog(@"####### addImageRunWithConfigAndImage: imageLength=%@ imageName=%@ markerSizeMeter=%@", imageLength, imageNameNSString, markerSizeMeter);
 
     //   'imageBytes': bytes,
     //   'imageLength': lengthInBytes,
     //   'imageName': imageName,
     //   'markerSizeMeter': markerSizeMeter,
 
-    // NSData* imageData = [[NSData alloc] initWithBytes:XXXX length:imageLength];
     UIImage* uiimage = [[UIImage alloc] initWithData:imageData];
     CGImageRef cgImage = [uiimage CGImage];
     
@@ -221,15 +223,13 @@ static NSMutableSet *g_mSet = NULL;
 }
 
 - (void)startWorldTrackingSessionWithImage:(FlutterMethodCall*)call result:(FlutterResult)result {
-    // NSNumber* runOpts = call.arguments[@"runOpts"];
+    NSNumber* runOpts = call.arguments[@"runOpts"];
+    NSLog(@"####### startWorldTrackingSessionWithImage: runOpts=%@", runOpts);
 
-    // // ARWorldTrackingConfigurationのみ
-    // (_configuration as? ARWorldTrackingConfiguration).detectionImages = g_mSet;
+    // ARWorldTrackingConfigurationのみ
+    ((ARWorldTrackingConfiguration*)_configuration).detectionImages = [g_mSet autorelease];
     
-    // [self.sceneView.session runWithConfiguration:[self configuration] options:runOpts];
-
-    // TODO メモリ解放必要？
-    // g_mSet
+    [self.sceneView.session runWithConfiguration:[self configuration] options:runOpts];
 }
 
 - (ARConfiguration*) buildConfiguration: (NSDictionary*)params {
@@ -240,10 +240,10 @@ static NSMutableSet *g_mSet = NULL;
         if (ARWorldTrackingConfiguration.isSupported) {
             ARWorldTrackingConfiguration* worldTrackingConfiguration = [ARWorldTrackingConfiguration new];
             worldTrackingConfiguration.planeDetection = self.planeDetection;
-            NSString* detectionImages = params[@"detectionImagesGroupName"];
-            if ([detectionImages isKindOfClass:[NSString class]]) {
-                worldTrackingConfiguration.detectionImages = [ARReferenceImage referenceImagesInGroupNamed:detectionImages bundle:nil];
-            }
+            // NSString* detectionImages = params[@"detectionImagesGroupName"];
+            // if ([detectionImages isKindOfClass:[NSString class]]) {
+            //     worldTrackingConfiguration.detectionImages = [ARReferenceImage referenceImagesInGroupNamed:detectionImages bundle:nil];
+            // }
             _configuration = worldTrackingConfiguration;
         }
     } else if (configurationType == 1) {
@@ -251,18 +251,28 @@ static NSMutableSet *g_mSet = NULL;
             ARFaceTrackingConfiguration* faceTrackingConfiguration = [ARFaceTrackingConfiguration new];
             _configuration = faceTrackingConfiguration;
         }
-    } else if (configurationType == 2) {
-        if (ARImageTrackingConfiguration.isSupported) {
-            ARImageTrackingConfiguration* imageTrackingConfiguration = [ARImageTrackingConfiguration new];
-            NSString* trackingImages = params[@"trackingImagesGroupName"];
-            if ([trackingImages isKindOfClass:[NSString class]]) {
-                imageTrackingConfiguration.trackingImages = [ARReferenceImage referenceImagesInGroupNamed:trackingImages bundle:nil];
-            }
-            _configuration = imageTrackingConfiguration;
-        }
+    // } else if (configurationType == 2) {
+    //     if (ARImageTrackingConfiguration.isSupported) {
+    //         ARImageTrackingConfiguration* imageTrackingConfiguration = [ARImageTrackingConfiguration new];
+    //         NSString* trackingImages = params[@"trackingImagesGroupName"];
+    //         if ([trackingImages isKindOfClass:[NSString class]]) {
+    //             imageTrackingConfiguration.trackingImages = [ARReferenceImage referenceImagesInGroupNamed:trackingImages bundle:nil];
+    //         }
+    //         _configuration = imageTrackingConfiguration;
+    //     }
     }
     NSNumber* worldAlignment = params[@"worldAlignment"];
     _configuration.worldAlignment = [self getWorldAlignmentFromNumber:[worldAlignment intValue]];
+
+    NSNumber* lightEstimationEnabled = params[@"lightEstimationEnabled"];
+    _configuration.lightEstimationEnabled = [lightEstimationEnabled boolValue];
+
+    NSNumber* autoFocusEnabled = params[@"autoFocusEnabled"];
+    _configuration.autoFocusEnabled = [autoFocusEnabled boolValue];
+
+    NSNumber* maximumNumberOfTrackedImages = params[@"maximumNumberOfTrackedImages"];
+    _configuration.maximumNumberOfTrackedImages = [maximumNumberOfTrackedImages intValue];
+
     return _configuration;
 }
 

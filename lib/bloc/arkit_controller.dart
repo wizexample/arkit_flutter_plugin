@@ -15,11 +15,11 @@ import 'package:arkit_plugin/hit/arkit_node_pan_result.dart';
 import 'package:arkit_plugin/hit/arkit_node_pinch_result.dart';
 import 'package:arkit_plugin/light/arkit_light_estimate.dart';
 import 'package:arkit_plugin/utils/matrix4_utils.dart';
-import 'package:arkit_plugin/widget/arkit_arplane_detection.dart';
+import 'package:arkit_plugin/bloc/arkit_arplane_detection.dart';
 import 'package:arkit_plugin/utils/vector_utils.dart';
 import 'package:arkit_plugin/hit/arkit_hit_test_result.dart';
-import 'package:arkit_plugin/widget/arkit_configuration.dart';
-import 'package:arkit_plugin/widget/arkit_world_alignment.dart';
+import 'package:arkit_plugin/bloc/arkit_configuration.dart';
+import 'package:arkit_plugin/bloc/arkit_world_alignment.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -33,174 +33,50 @@ typedef ARKitPanResultHandler = void Function(List<ARKitNodePanResult> pans);
 typedef ARKitPinchGestureHandler = void Function(
     List<ARKitNodePinchResult> pinch);
 
-/// A widget that wraps ARSCNView from ARKit.
-class ARKitSceneView extends StatefulWidget {
-  const ARKitSceneView({
-    Key key,
-    @required this.onARKitViewCreated,
-    this.configuration = ARKitConfiguration.worldTracking,
-    this.showStatistics = false,
-    this.autoenablesDefaultLighting = true,
-    this.enableTapRecognizer = false,
-    this.enablePinchRecognizer = false,
-    this.enablePanRecognizer = false,
-    this.showFeaturePoints = false,
-    this.showWorldOrigin = false,
-    this.planeDetection = ARPlaneDetection.none,
-    this.detectionImagesGroupName,
-    this.trackingImagesGroupName,
-    this.forceUserTapOnCenter = false,
-    this.worldAlignment = ARWorldAlignment.gravity,
-    this.debug = false,
-  }) : super(key: key);
-
-  /// This function will be fired when ARKit view is created.
-  final ARKitPluginCreatedCallback onARKitViewCreated;
-
-  /// The configuration to use.
-  /// Defaults to World Tracking.
-  final ARKitConfiguration configuration;
-
-  /// Determines whether the receiver should display statistics info like FPS.
-  /// When set to true, statistics are displayed in a overlay on top of the rendered scene.
-  /// Defaults to false.
-  final bool showStatistics;
-
-  /// Specifies whether the receiver should automatically light up scenes that have no light source.
-  /// When enabled, a diffuse light is automatically added and placed while rendering scenes that have no light or only ambient lights.
-  /// The default is true.
-  final bool autoenablesDefaultLighting;
-
-  /// Determines whether the receiver should recognize taps.
-  /// The default is false.
-  final bool enableTapRecognizer;
-
-  /// Determines whether the receiver should recognize pinch events.
-  /// The default is false.
-  final bool enablePinchRecognizer;
-
-  /// Determines whether the receiver should recognize pan events.
-  /// The default is false.
-  final bool enablePanRecognizer;
-
-  /// Type of planes to detect in the scene.
-  /// If set, new planes will continue to be detected and updated over time.
-  /// Detected planes will be added to the session as ARPlaneAnchor objects.
-  /// In the event that two planes are merged, the newer plane will be removed.
-  /// Defaults to ARPlaneDetection.none.
-  final ARPlaneDetection planeDetection;
-
-  /// Determines how the coordinate system should be aligned with the world.
-  /// The default is ARWorldAlignment.gravity.
-  final ARWorldAlignment worldAlignment;
-
-  /// Show detected 3D feature points in the world.
-  /// The default is false.
-  final bool showFeaturePoints;
-
-  /// Show the world origin in the scene.
-  /// The default is false.
-  final bool showWorldOrigin;
-
-  /// Images to detect in the scene.
-  /// If set the session will attempt to detect the specified images.
-  /// When an image is detected an ARImageAnchor will be added to the session.
-  final String detectionImagesGroupName;
-
-  /// Images to detect in the scene.
-  /// If set the session will attempt to detect the specified images.
-  /// When an image is detected an ARImageAnchor will be added to the session.
-  final String trackingImagesGroupName;
-
-  /// When set every user tap will be processed like user tapped on the center of the screen.
-  /// The default is false.
-  final bool forceUserTapOnCenter;
-
-  /// When true prints all communication between the plugin and the framework.
-  /// The default is false;
-  final bool debug;
-
-  @override
-  _ARKitSceneViewState createState() => _ARKitSceneViewState();
-}
-
-class _ARKitSceneViewState extends State<ARKitSceneView> {
-  @override
-  Widget build(BuildContext context) {
-    if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return UiKitView(
-        viewType: 'arkit',
-        onPlatformViewCreated: onPlatformViewCreated,
-        creationParamsCodec: const StandardMessageCodec(),
-      );
-    }
-
-    return Text('$defaultTargetPlatform is not supported by this plugin');
-  }
-
-  Future<void> onPlatformViewCreated(int id) async {
-    if (widget.onARKitViewCreated == null) {
-      return;
-    }
-    widget.onARKitViewCreated(ARKitController._init(
-      id,
-      widget.configuration,
-      widget.showStatistics,
-      widget.autoenablesDefaultLighting,
-      widget.enableTapRecognizer,
-      widget.showFeaturePoints,
-      widget.showWorldOrigin,
-      widget.enablePinchRecognizer,
-      widget.enablePanRecognizer,
-      widget.planeDetection,
-      widget.worldAlignment,
-      widget.detectionImagesGroupName,
-      widget.trackingImagesGroupName,
-      widget.forceUserTapOnCenter,
-      widget.debug,
-    ));
-  }
-}
-
 /// Controls an [ARKitSceneView].
 ///
 /// An [ARKitController] instance can be obtained by setting the [ARKitSceneView.onARKitViewCreated]
 /// callback for an [ARKitSceneView] widget.
 class ARKitController {
-  ARKitController._init(
-    int id,
-    ARKitConfiguration configuration,
-    bool showStatistics,
-    bool autoenablesDefaultLighting,
-    bool enableTapRecognizer,
-    bool showFeaturePoints,
-    bool showWorldOrigin,
-    bool enablePinchRecognizer,
-    bool enablePanRecognizer,
-    ARPlaneDetection planeDetection,
-    ARWorldAlignment worldAlignment,
-    String detectionImagesGroupName,
-    String trackingImagesGroupName,
-    bool forceUserTapOnCenter,
-    this.debug,
-  ) {
-    _channel = MethodChannel('arkit_$id');
-    _channel.setMethodCallHandler(_platformCallHandler);
-    _channel.invokeMethod<void>('init', {
-      'configuration': configuration.index,
-      'showStatistics': showStatistics,
-      'autoenablesDefaultLighting': autoenablesDefaultLighting,
-      'enableTapRecognizer': enableTapRecognizer,
-      'enablePinchRecognizer': enablePinchRecognizer,
-      'enablePanRecognizer': enablePanRecognizer,
-      'planeDetection': planeDetection.index,
-      'showFeaturePoints': showFeaturePoints,
-      'showWorldOrigin': showWorldOrigin,
-      'detectionImagesGroupName': detectionImagesGroupName,
-      'trackingImagesGroupName': trackingImagesGroupName,
-      'forceUserTapOnCenter': forceUserTapOnCenter,
-      'worldAlignment': worldAlignment.index,
-    });
+  // ARKitController._init(
+  //   int id,
+  //   ARKitConfiguration configuration,
+  //   bool showStatistics,
+  //   bool autoenablesDefaultLighting,
+  //   bool enableTapRecognizer,
+  //   bool showFeaturePoints,
+  //   bool showWorldOrigin,
+  //   bool enablePinchRecognizer,
+  //   bool enablePanRecognizer,
+  //   ARPlaneDetection planeDetection,
+  //   ARWorldAlignment worldAlignment,
+  //   String detectionImagesGroupName,
+  //   String trackingImagesGroupName,
+  //   bool forceUserTapOnCenter,
+  //   this.debug,
+  // ) {
+  //   _channel = MethodChannel('arkit');
+  //   _channel.setMethodCallHandler(_platformCallHandler);
+  //   _channel.invokeMethod<void>('init', {
+  //     'configuration': configuration.index,
+  //     'showStatistics': showStatistics,
+  //     'autoenablesDefaultLighting': autoenablesDefaultLighting,
+  //     'enableTapRecognizer': enableTapRecognizer,
+  //     'enablePinchRecognizer': enablePinchRecognizer,
+  //     'enablePanRecognizer': enablePanRecognizer,
+  //     'planeDetection': planeDetection.index,
+  //     'showFeaturePoints': showFeaturePoints,
+  //     'showWorldOrigin': showWorldOrigin,
+  //     'detectionImagesGroupName': detectionImagesGroupName,
+  //     'trackingImagesGroupName': trackingImagesGroupName,
+  //     'forceUserTapOnCenter': forceUserTapOnCenter,
+  //     'worldAlignment': worldAlignment.index,
+  //   });
+  // }
+
+  static Future<bool> isARKitWorldTrackingSessionConfigurationSupported() async{
+    var channel = MethodChannel('prepare_arkit');
+    return await channel.invokeMethod('isARKitWorldTrackingSessionConfigurationSupported');
   }
 
 ///
@@ -218,12 +94,13 @@ class ARKitController {
     bool enablePanRecognizer,
     ARPlaneDetection planeDetection,
     ARWorldAlignment worldAlignment,
-    // String detectionImagesGroupName,
-    // String trackingImagesGroupName,
     bool forceUserTapOnCenter,
+    bool lightEstimationEnabled,
+    bool autoFocusEnabled,
+    int maximumNumberOfTrackedImages,
     this.debug,
   ) {
-    _channel = MethodChannel('arkit_$id');
+    // _channel = MethodChannel('arkit');
     _channel.setMethodCallHandler(_platformCallHandler);
     _channel.invokeMethod<void>('initStartWorldTrackingSessionWithImage', {
       'configuration': configuration.index,
@@ -235,15 +112,15 @@ class ARKitController {
       'planeDetection': planeDetection.index,
       'showFeaturePoints': showFeaturePoints,
       'showWorldOrigin': showWorldOrigin,
-      // 'detectionImagesGroupName': detectionImagesGroupName,
-      // 'trackingImagesGroupName': trackingImagesGroupName,
       'forceUserTapOnCenter': forceUserTapOnCenter,
       'worldAlignment': worldAlignment.index,
+      'lightEstimationEnabled': lightEstimationEnabled,
+      'autoFocusEnabled': autoFocusEnabled,
+      'maximumNumberOfTrackedImages': maximumNumberOfTrackedImages,
     });
   }
 
   void addImageRunWithConfigAndImage(ByteData bytes, int lengthInBytes, String imageName, double markerSizeMeter) {
-    _channel.setMethodCallHandler(_platformCallHandler);
     _channel.invokeMethod<void>('addImageRunWithConfigAndImage', {
       'imageBytes': bytes,
       'imageLength': lengthInBytes,
@@ -253,7 +130,6 @@ class ARKitController {
   }
 
   void startWorldTrackingSessionWithImage(int runOptions) {
-    _channel.setMethodCallHandler(_platformCallHandler);
     _channel.invokeMethod<void>('startWorldTrackingSessionWithImage', {
       'runOptions': runOptions,
     });
