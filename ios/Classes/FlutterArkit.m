@@ -227,7 +227,7 @@ static NSMutableSet *g_mSet = NULL;
     NSLog(@"####### startWorldTrackingSessionWithImage: runOpts=%@", runOpts);
 
     // ARWorldTrackingConfigurationのみ
-    ((ARWorldTrackingConfiguration*)_configuration).detectionImages = [g_mSet autorelease];
+    ((ARWorldTrackingConfiguration*)_configuration).detectionImages = g_mSet;
     
     [self.sceneView.session runWithConfiguration:[self configuration] options:runOpts];
 }
@@ -244,6 +244,12 @@ static NSMutableSet *g_mSet = NULL;
             // if ([detectionImages isKindOfClass:[NSString class]]) {
             //     worldTrackingConfiguration.detectionImages = [ARReferenceImage referenceImagesInGroupNamed:detectionImages bundle:nil];
             // }
+            NSNumber* autoFocusEnabled = params[@"autoFocusEnabled"];
+            worldTrackingConfiguration.autoFocusEnabled = [autoFocusEnabled boolValue];
+
+            NSNumber* maximumNumberOfTrackedImages = params[@"maximumNumberOfTrackedImages"];
+            worldTrackingConfiguration.maximumNumberOfTrackedImages = [maximumNumberOfTrackedImages intValue];
+
             _configuration = worldTrackingConfiguration;
         }
     } else if (configurationType == 1) {
@@ -266,12 +272,6 @@ static NSMutableSet *g_mSet = NULL;
 
     NSNumber* lightEstimationEnabled = params[@"lightEstimationEnabled"];
     _configuration.lightEstimationEnabled = [lightEstimationEnabled boolValue];
-
-    NSNumber* autoFocusEnabled = params[@"autoFocusEnabled"];
-    _configuration.autoFocusEnabled = [autoFocusEnabled boolValue];
-
-    NSNumber* maximumNumberOfTrackedImages = params[@"maximumNumberOfTrackedImages"];
-    _configuration.maximumNumberOfTrackedImages = [maximumNumberOfTrackedImages intValue];
 
     return _configuration;
 }
