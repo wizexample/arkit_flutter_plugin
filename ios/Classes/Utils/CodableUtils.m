@@ -36,6 +36,7 @@
         [params setObject:image.referenceImage.name forKey:@"referenceImageName"];
         simd_float2 size = simd_make_float2(image.referenceImage.physicalSize.width, image.referenceImage.physicalSize.height);
         [params setObject:[CodableUtils convertSimdFloat2ToString:size] forKey:@"referenceImagePhysicalSize"];
+        [params setObject:([image isTracked] ? @"true" : @"false") forKey:@"isTracked"];
     }
     if ([anchor isMemberOfClass:[ARFaceAnchor class]]) {
         [params setObject:@"faceAnchor" forKey:@"anchorType"];

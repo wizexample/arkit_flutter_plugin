@@ -67,6 +67,7 @@ class ARKitImageAnchor extends ARKitAnchor {
     String nodeName,
     String identifier,
     Matrix4 transorm,
+    this.isTracked,
   ) : super(
           nodeName,
           identifier,
@@ -76,8 +77,7 @@ class ARKitImageAnchor extends ARKitAnchor {
   /// Name of the detected image.
   final String referenceImageName;
   final Vector2 referenceImagePhysicalSize;
-
-  bool isTracked;
+  final bool isTracked;
 
   static ARKitImageAnchor fromMap(Map<String, String> map) => ARKitImageAnchor(
         map['referenceImageName'],
@@ -85,6 +85,7 @@ class ARKitImageAnchor extends ARKitAnchor {
         map['node_name'],
         map['identifier'],
         getMatrixFromString(map['transform']),
+        map['isTracked'] == "true" ? true : false,
       );
 }
 
