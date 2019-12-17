@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:arkit_plugin/arkit_node.dart';
 import 'package:arkit_plugin/geometries/arkit_anchor.dart';
 import 'package:arkit_plugin/geometries/arkit_box.dart';
@@ -100,7 +101,7 @@ class ARKitController {
     int maximumNumberOfTrackedImages,
     this.debug,
   ) {
-    // _channel = MethodChannel('arkit');
+    _channel = MethodChannel('arkit');
     _channel.setMethodCallHandler(_platformCallHandler);
     _channel.invokeMethod<void>('initStartWorldTrackingSessionWithImage', {
       'configuration': configuration.index,
@@ -120,7 +121,7 @@ class ARKitController {
     });
   }
 
-  void addImageRunWithConfigAndImage(ByteData bytes, int lengthInBytes, String imageName, double markerSizeMeter) {
+  void addImageRunWithConfigAndImage(Uint8List bytes, int lengthInBytes, String imageName, double markerSizeMeter) {
     _channel.invokeMethod<void>('addImageRunWithConfigAndImage', {
       'imageBytes': bytes,
       'imageLength': lengthInBytes,

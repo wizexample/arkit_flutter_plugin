@@ -204,7 +204,7 @@ static NSMutableSet *g_mSet = NULL;
     NSString* imageNameNSString = call.arguments[@"imageName"];
     NSNumber* markerSizeMeterNSNumber = call.arguments[@"markerSizeMeter"];
     double markerSizeMeter = [markerSizeMeterNSNumber doubleValue];
-    NSLog(@"####### addImageRunWithConfigAndImage: imageLength=%@ imageName=%@ markerSizeMeter=%@", imageLength, imageNameNSString, markerSizeMeter);
+    // NSLog(@"####### addImageRunWithConfigAndImage: imageLength=%@ imageName=%@ markerSizeMeter=%@", imageLength, imageNameNSString, markerSizeMeter);
 
     //   'imageBytes': bytes,
     //   'imageLength': lengthInBytes,
