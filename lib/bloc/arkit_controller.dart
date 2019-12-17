@@ -330,6 +330,8 @@ class ARKitController {
     node.eulerAngles.addListener(() => _handleEulerAnglesChanged(node));
     node.scale.addListener(() => _handleScaleChanged(node));
 
+    node.isHidden.addListener(() => _handleIsHiddenChanged(node));
+
     if (node.geometry != null) {
       node.geometry.materials.addListener(() => _updateMaterials(node));
       switch (node.geometry.runtimeType) {
@@ -473,6 +475,11 @@ class ARKitController {
   void _handleScaleChanged(ARKitNode node) {
     _channel.invokeMethod<void>('scaleChanged',
         _getHandlerParams(node, convertVector3ToMap(node.scale.value)));
+  }
+
+  void _handleIsHiddenChanged(ARKitNode node) {
+    _channel.invokeMethod<void>('isHiddenChanged',
+        _getHandlerParams(node, {'isHidden': node.isHidden.value}));
   }
 
   void _updateMaterials(ARKitNode node) {

@@ -20,7 +20,9 @@ class ARKitNode {
     Vector4 rotation,
     Vector3 eulerAngles,
     String name,
-  })  : name = name ?? random_string.randomString(),
+    bool isHidden,
+  })  : isHidden = (isHidden == null) ? ValueNotifier(false) : ValueNotifier(isHidden),
+        name = name ?? random_string.randomString(),
         position = ValueNotifier(position),
         scale = ValueNotifier(scale),
         rotation = ValueNotifier(rotation),
@@ -28,6 +30,8 @@ class ARKitNode {
 
   /// Returns the geometry attached to the receiver.
   final ARKitGeometry geometry;
+
+  final ValueNotifier<bool> isHidden;
 
   /// Determines the receiver's position.
   final ValueNotifier<Vector3> position;
@@ -78,5 +82,6 @@ class ARKitNode {
         'light': light?.toMap(),
         'name': name,
         'renderingOrder': renderingOrder,
+        'isHidden': isHidden.value,
       }..removeWhere((String k, dynamic v) => v == null);
 }

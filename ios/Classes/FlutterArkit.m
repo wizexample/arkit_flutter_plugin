@@ -89,6 +89,8 @@
     [self updateEulerAngles:call andResult:result];
   } else if ([[call method] isEqualToString:@"scaleChanged"]) {
     [self updateScale:call andResult:result];
+  } else if ([[call method] isEqualToString:@"isHiddenChanged"]) {
+    [self updateIsHidden:call andResult:result];
   } else if ([[call method] isEqualToString:@"updateSingleProperty"]) {
     [self updateSingleProperty:call andResult:result];
   } else if ([[call method] isEqualToString:@"updateMaterials"]) {
@@ -414,6 +416,21 @@ static NSMutableSet *g_mSet = NULL;
     result(nil);
 }
 
+- (void) updateIsHidden:(FlutterMethodCall*)call andResult:(FlutterResult)result{
+    NSString* name = call.arguments[@"name"];
+    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
+
+    if ([call.arguments[@"isHidden"] boolValue]) {
+        node.hidden = YES;
+    } else {
+        node.hidden = NO;
+    }
+
+    NSLog(@"node.isHidden:%d",node.isHidden);
+    
+    result(nil);
+}
+
 - (void) updateSingleProperty:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
     SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
@@ -548,6 +565,13 @@ static NSMutableSet *g_mSet = NULL;
     if (dict[@"light"] != nil) {
         NSDictionary *light = dict[@"light"];
         node.light = [self getLightFromDict: light];
+    }
+    if (dict[@"isHidden"] != nil) {
+        if ([dict[@"isHidden"] boolValue]) {
+            node.hidden = YES;
+        } else {
+            node.hidden = NO;
+        }
     }
     
     NSNumber* renderingOrder = dict[@"renderingOrder"];
