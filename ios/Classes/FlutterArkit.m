@@ -555,6 +555,9 @@ static NSMutableSet *g_mSet = NULL;
     if (dict[@"rotation"] != nil) {
         node.rotation = [DecodableUtils parseVector4:dict[@"rotation"]];
     }
+    if (dict[@"eulerAngles"] != nil) {
+        node.eulerAngles = [DecodableUtils parseVector3:dict[@"eulerAngles"]];
+    }
     if (dict[@"name"] != nil) {
         node.name = dict[@"name"];
     }
