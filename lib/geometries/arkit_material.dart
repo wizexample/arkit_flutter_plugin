@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 /// The contents of a ARKitMaterial slot
 /// This can be used to specify the various properties of SCNMaterial slots such as diffuse, ambient, etc.
 class ARKitMaterialProperty {
-  ARKitMaterialProperty({this.color, this.image, this.url});
+  ARKitMaterialProperty({this.color, this.image, this.url,this.video});
 
   /// Specifies the receiver's color.
   final Color color;
@@ -16,10 +16,13 @@ class ARKitMaterialProperty {
   /// Specifies the location of an image file
   final String url;
 
+  final String video;
+
   Map<String, dynamic> toMap() => <String, dynamic>{
         'color': color?.value,
         'url': url,
         'image': image,
+        'video': video,
       }..removeWhere((String k, dynamic v) => v == null);
 }
 
