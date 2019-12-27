@@ -1,6 +1,7 @@
 import 'package:arkit_plugin/arkit_node.dart';
 import 'package:arkit_plugin/light/arkit_light.dart';
 import 'package:arkit_plugin/physics/arkit_physics_body.dart';
+import 'package:arkit_plugin/utils/vector_utils.dart';
 import 'package:flutter/widgets.dart';
 import 'package:vector_math/vector_math_64.dart';
 
@@ -31,5 +32,8 @@ class ARKitObjectNode extends ARKitNode {
   @override
   Map<String, dynamic> toMap() => <String, dynamic>{
         'localPath': localPath,
+        'position': convertVector3ToMap(position.value),
+        'scale': convertVector3ToMap(scale.value),
+        'eulerAngles': convertVector3ToMap(eulerAngles.value),
       }..addAll(super.toMap());
 }
