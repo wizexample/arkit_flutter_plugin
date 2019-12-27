@@ -6,34 +6,44 @@ import 'package:flutter/widgets.dart';
 import 'package:vector_math/vector_math_64.dart';
 
 ///  Node that references an external serialized node graph.
-class ARKitObjectNode extends ARKitNode {
+class ARKitObjectNode {
   ARKitObjectNode({
     @required this.localPath,
-    ARKitPhysicsBody physicsBody,
-    ARKitLight light,
+    this.renderingOrder = 0,
     Vector3 position,
     Vector3 scale,
+    Vector4 rotation,
     Vector3 eulerAngles,
-    String name,
-    int renderingOrder,
-  }) : super(
-          physicsBody: physicsBody,
-          light: light,
-          position: position,
-          scale: scale,
-          eulerAngles: eulerAngles,
-          name: name,
-          renderingOrder: renderingOrder,
-        );
+    bool isHidden,
+  }) : isHidden = (isHidden == null) ? ValueNotifier(false) : ValueNotifier(isHidden),
+        position = ValueNotifier(position),
+        scale = ValueNotifier(scale),
+        rotation = ValueNotifier(rotation),
+        eulerAngles = ValueNotifier(eulerAngles);
+        
 
   /// Node localPath at bundle.
   final String localPath;
 
-  @override
+  final int renderingOrder;
+
+  final ValueNotifier<Vector3> position;
+
+  final ValueNotifier<Vector3> scale;
+
+  final ValueNotifier<Vector4> rotation;
+
+  final ValueNotifier<Vector3> eulerAngles;
+
+  final ValueNotifier<bool> isHidden;
+
+
+
   Map<String, dynamic> toMap() => <String, dynamic>{
         'localPath': localPath,
         'position': convertVector3ToMap(position.value),
         'scale': convertVector3ToMap(scale.value),
         'eulerAngles': convertVector3ToMap(eulerAngles.value),
-      }..addAll(super.toMap());
+        'isHidden': isHidden.value
+      }..removeWhere((String k, dynamic v) => v == null);
 }
