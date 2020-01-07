@@ -544,6 +544,13 @@ static NSMutableSet *g_mSet = NULL;
         NSURL* referenceURL = [[NSBundle mainBundle] URLForResource:url withExtension:nil];
         node = [SCNReferenceNode referenceNodeWithURL:referenceURL];
         [(SCNReferenceNode*)node load];
+    } else if([dict[@"dartType"] isEqualToString:@"ARKitObjectNode"]){
+        node = [SCNNode nodeWithGeometry:geometry];
+        NSURL* localPath = [NSURL URLWithString:dict[@"localPath"]];
+        SCNScene *scene = [SCNScene sceneWithURL: localPath options: nil error: nil];
+        for (id childNode in scene.rootNode.childNodes){
+            [node addChildNode:childNode];
+        }
     } else {
         return nil;
     }

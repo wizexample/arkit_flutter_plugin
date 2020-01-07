@@ -103,20 +103,20 @@
     } else if (propertyString[@"url"] != nil) {
         return propertyString[@"url"];
     } else if (propertyString[@"video"] != nil) {
-        NSURL *videoURL = [NSURL URLWithString: propertyString[@"video"]];
-      
-         AVPlayerItem *playerItem = [[AVPlayerItem alloc] initWithURL: videoURL];
-         AVPlayer *player = [[AVPlayer alloc] initWithPlayerItem: playerItem];
-         [player play];
+        NSURL *videoURL = [[NSURL alloc] initFileURLWithPath: propertyString[@"video"]];
+    
+        AVPlayerItem *playerItem = [[AVPlayerItem alloc] initWithURL: videoURL];
+        AVPlayer *player = [[AVPlayer alloc] initWithPlayerItem: playerItem];
+        [player play];
 
-         AVURLAsset *videoAsset = [[AVURLAsset alloc] initWithURL: videoURL options: nil];
-         AVAssetTrack *videoTrack = [videoAsset tracksWithMediaType:AVMediaTypeVideo][0];
+        AVURLAsset *videoAsset = [[AVURLAsset alloc] initWithURL: videoURL options: nil];
+        AVAssetTrack *videoTrack = [videoAsset tracksWithMediaType:AVMediaTypeVideo][0];
 
-         SKScene *videoScene = [SKScene sceneWithSize:CGSizeMake(videoTrack.naturalSize.width,videoTrack.naturalSize.height)];
+        SKScene *videoScene = [SKScene sceneWithSize:CGSizeMake(videoTrack.naturalSize.width,videoTrack.naturalSize.height)];
 
-         SKVideoNode *videoNode = [SKVideoNode videoNodeWithAVPlayer: player];
-         videoNode.yScale = -1.0;
-         videoNode.position = CGPointMake(videoTrack.naturalSize.width / 2,videoTrack.naturalSize.height / 2);
+        SKVideoNode *videoNode = [SKVideoNode videoNodeWithAVPlayer: player];
+        videoNode.yScale = -1.0;
+        videoNode.position = CGPointMake(videoTrack.naturalSize.width / 2,videoTrack.naturalSize.height / 2);
 
         [videoScene addChild:videoNode];
         return videoScene;
