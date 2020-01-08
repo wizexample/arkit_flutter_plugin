@@ -6,11 +6,9 @@ import 'package:flutter/widgets.dart';
 import 'package:vector_math/vector_math_64.dart';
 import 'package:arkit_plugin/geometries/arkit_geometry.dart';
 
-
 class ARKitVideoNode extends ARKitNode {
   ARKitVideoNode({
     @required this.localPath,
-    @required this.isPlay,
     ARKitGeometry geometry,
     ARKitPhysicsBody physicsBody,
     ARKitLight light,
@@ -22,7 +20,12 @@ class ARKitVideoNode extends ARKitNode {
     int renderingOrder,
     bool isHidden,
     bool isLoop,
-  }) : isLoop = (isLoop == null) ? ValueNotifier(false) : ValueNotifier(isLoop), super(
+    bool isPlay,
+  })  : isLoop =
+            (isLoop == null) ? ValueNotifier(false) : ValueNotifier(isLoop),
+        isPlay =
+            (isPlay == null) ? ValueNotifier(false) : ValueNotifier(isPlay),
+        super(
           geometry: geometry,
           physicsBody: physicsBody,
           light: light,
@@ -32,7 +35,7 @@ class ARKitVideoNode extends ARKitNode {
           rotation: rotation,
           name: name,
           renderingOrder: renderingOrder,
-          isHidden:isHidden,
+          isHidden: isHidden,
         );
 
   /// Node localPath at bundle.
@@ -53,6 +56,6 @@ class ARKitVideoNode extends ARKitNode {
         'isPlay': isPlay.value,
         'isLoop': isLoop.value,
       }
-      ..addAll(super.toMap())
-      ..removeWhere((String k, dynamic v) => v == null);
+        ..addAll(super.toMap())
+        ..removeWhere((String k, dynamic v) => v == null);
 }

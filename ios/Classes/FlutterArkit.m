@@ -433,12 +433,12 @@ static NSMutableSet *g_mSet = NULL;
     result(nil);
 }
 
-- (void) updateIsplay:(FlutterMethodCall*)call andResult:(FlutterResult)result{
+- (void) updateIsPlay:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     //TODO
     NSString* name = call.arguments[@"name"];
     SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
 
-    NSLog(@"node.isPlay:%d",node);
+    // NSLog(@"node.isPlay:%@",node);
     
     result(nil);
 }
