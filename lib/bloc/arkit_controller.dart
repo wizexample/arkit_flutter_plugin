@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:arkit_plugin/arkit_node.dart';
+import 'package:arkit_plugin/arkit_video_node.dart';
 import 'package:arkit_plugin/geometries/arkit_anchor.dart';
 import 'package:arkit_plugin/geometries/arkit_box.dart';
 import 'package:arkit_plugin/geometries/arkit_capsule.dart';
@@ -332,6 +333,10 @@ class ARKitController {
 
     node.isHidden.addListener(() => _handleIsHiddenChanged(node));
 
+    if (node is ARKitVideoNode){
+      node.isPlay.addListener(() => _handleIsPlayChanged(node));
+    }
+
     if (node.geometry != null) {
       node.geometry.materials.addListener(() => _updateMaterials(node));
       switch (node.geometry.runtimeType) {
@@ -480,6 +485,11 @@ class ARKitController {
   void _handleIsHiddenChanged(ARKitNode node) {
     _channel.invokeMethod<void>('isHiddenChanged',
         _getHandlerParams(node, {'isHidden': node.isHidden.value}));
+  }
+
+  void _handleIsPlayChanged(ARKitVideoNode node){
+    _channel.invokeMethod<void>('isPlayChanged',
+      _getHandlerParams(node, {'isPlay': node.isPlay.value}));
   }
 
   void _updateMaterials(ARKitNode node) {

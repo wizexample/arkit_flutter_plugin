@@ -91,6 +91,8 @@
     [self updateScale:call andResult:result];
   } else if ([[call method] isEqualToString:@"isHiddenChanged"]) {
     [self updateIsHidden:call andResult:result];
+  } else if ([[call method] isEqualToString:@"isPlayChanged"]) {
+    [self updateIsPlay:call andResult:result];
   } else if ([[call method] isEqualToString:@"updateSingleProperty"]) {
     [self updateSingleProperty:call andResult:result];
   } else if ([[call method] isEqualToString:@"updateMaterials"]) {
@@ -431,6 +433,16 @@ static NSMutableSet *g_mSet = NULL;
     result(nil);
 }
 
+- (void) updateIsplay:(FlutterMethodCall*)call andResult:(FlutterResult)result{
+    //TODO
+    NSString* name = call.arguments[@"name"];
+    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
+
+    NSLog(@"node.isPlay:%d",node);
+    
+    result(nil);
+}
+
 - (void) updateSingleProperty:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
     SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
@@ -546,11 +558,13 @@ static NSMutableSet *g_mSet = NULL;
         [(SCNReferenceNode*)node load];
     } else if([dict[@"dartType"] isEqualToString:@"ARKitObjectNode"]){
         node = [SCNNode nodeWithGeometry:geometry];
-        NSURL* localPath = [NSURL URLWithString:dict[@"localPath"]];
+        NSURL *localPath = [[NSURL alloc] initFileURLWithPath: dict[@"localPath"]];
         SCNScene *scene = [SCNScene sceneWithURL: localPath options: nil error: nil];
         for (id childNode in scene.rootNode.childNodes){
             [node addChildNode:childNode];
         }
+    } else if([dict[@"dartType"] isEqualToString:@"ARKitVideoNode"]){
+      //TODO VideoNode作成
     } else {
         return nil;
     }
@@ -582,6 +596,9 @@ static NSMutableSet *g_mSet = NULL;
         } else {
             node.hidden = NO;
         }
+    }
+    if (dict[@"isPlay"] != nil){
+        //TODO
     }
     
     NSNumber* renderingOrder = dict[@"renderingOrder"];
