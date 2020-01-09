@@ -8,7 +8,6 @@ import 'package:arkit_plugin/geometries/arkit_geometry.dart';
 
 class ARKitVideoNode extends ARKitNode {
   ARKitVideoNode({
-    @required this.localPath,
     ARKitGeometry geometry,
     ARKitPhysicsBody physicsBody,
     ARKitLight light,
@@ -19,10 +18,8 @@ class ARKitVideoNode extends ARKitNode {
     String name,
     int renderingOrder,
     bool isHidden,
-    bool isLoop,
     bool isPlay,
-  })  : isLoop =
-            (isLoop == null) ? ValueNotifier(false) : ValueNotifier(isLoop),
+  })  :
         isPlay =
             (isPlay == null) ? ValueNotifier(false) : ValueNotifier(isPlay),
         super(
@@ -38,23 +35,17 @@ class ARKitVideoNode extends ARKitNode {
           isHidden: isHidden,
         );
 
-  /// Node localPath at bundle.
-  final String localPath;
-
   final ValueNotifier<bool> isPlay;
-  final ValueNotifier<bool> isLoop;
 
   @override
   Map<String, dynamic> toMap() => <String, dynamic>{
         'geometry': geometry,
-        'localPath': localPath,
         'position': convertVector3ToMap(position.value),
         'scale': convertVector3ToMap(scale.value),
         'eulerAngles': convertVector3ToMap(eulerAngles.value),
         'rotation': convertVector4ToMap(rotation.value),
         'isHidden': isHidden.value,
         'isPlay': isPlay.value,
-        'isLoop': isLoop.value,
       }
         ..addAll(super.toMap())
         ..removeWhere((String k, dynamic v) => v == null);
