@@ -102,12 +102,23 @@
         return [UIColor fromRGB: [color integerValue]];
     } else if (propertyString[@"url"] != nil) {
         return propertyString[@"url"];
-    } else if (propertyString[@"video"] != nil) {
-        NSURL *videoURL = [[NSURL alloc] initFileURLWithPath: propertyString[@"video"]];
+    } else if (propertyString[@"videoProperty"] != nil) {
+        NSDictionary* tmp = propertyString[@"videoProperty"];
+        NSLog(@"####### videoProperty=%@", tmp);
+
+        NSURL *videoURL = [[NSURL alloc] initFileURLWithPath: tmp[@"videoPath"]];
     
         AVPlayerItem *playerItem = [[AVPlayerItem alloc] initWithURL: videoURL];
         AVPlayer *player = [[AVPlayer alloc] initWithPlayerItem: playerItem];
-        [player play];
+
+        //TODO 動画ループ処理
+        if ([tmp[@"isLoop"] boolValue]){
+           player.actionAtItemEnd = AVPlayerActionAtItemEndNone;
+           [[NSNotificationCenter defaultCenter] addObserver:self
+                                                    selector:@selector(playerItemDidReachEnd:)
+                                                        name:AVPlayerItemDidPlayToEndTimeNotification
+                                                      object:[player currentItem]];
+        }
 
         AVURLAsset *videoAsset = [[AVURLAsset alloc] initWithURL: videoURL options: nil];
         AVAssetTrack *videoTrack = [videoAsset tracksWithMediaType:AVMediaTypeVideo][0];
@@ -123,6 +134,14 @@
     }
     
     return nil;
+}
+
+//Videoループ処理
+//現在は動画の最初に戻しているが、それを途中でできるのか。。。
++ (void) playerItemDidReachEnd:(NSNotification *)notification {
+    NSLog(@"####### playerItemDidReachEnd=%@", [notification object]);
+    AVPlayerItem *p = [notification object];
+    [p seekToTime:kCMTimeZero];
 }
 
 + (SCNLightingModel) getLightingMode:(NSInteger) mode {

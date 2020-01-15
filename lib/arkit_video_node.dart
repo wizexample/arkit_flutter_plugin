@@ -19,9 +19,7 @@ class ARKitVideoNode extends ARKitNode {
     int renderingOrder,
     bool isHidden,
     bool isPlay,
-  })  :
-        isPlay =
-            (isPlay == null) ? ValueNotifier(false) : ValueNotifier(isPlay),
+  })  : isPlay = ValueNotifier(isPlay),
         super(
           geometry: geometry,
           physicsBody: physicsBody,

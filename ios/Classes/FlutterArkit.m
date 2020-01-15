@@ -438,7 +438,16 @@ static NSMutableSet *g_mSet = NULL;
     NSString* name = call.arguments[@"name"];
     SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
 
-    // NSLog(@"node.isPlay:%@",node);
+    SKScene *scene = node.geometry.firstMaterial.diffuse.contents;
+    NSLog(@"####### scene=%@", scene);
+    for (SKVideoNode *videoNode in scene.children){
+        if ([call.arguments[@"isPlay"] boolValue]){
+            NSLog(@"###### videoPlay=%@", videoNode );
+            videoNode.play;
+        }else{
+            videoNode.pause;
+        }
+    }
     
     result(nil);
 }
@@ -565,6 +574,7 @@ static NSMutableSet *g_mSet = NULL;
         }
     } else if([dict[@"dartType"] isEqualToString:@"ARKitVideoNode"]){
       //TODO VideoNode作成
+      node = [SCNNode nodeWithGeometry:geometry];
     } else {
         return nil;
     }
@@ -599,6 +609,15 @@ static NSMutableSet *g_mSet = NULL;
     }
     if (dict[@"isPlay"] != nil){
         //TODO
+        SKScene *scene = node.geometry.firstMaterial.diffuse.contents;
+        for (SKVideoNode *videoNode in scene.children){
+            if ([dict[@"isPlay"] boolValue]){
+                NSLog(@"###### videoPlay=%@", videoNode );
+                videoNode.play;
+            }else{
+                videoNode.pause;
+            }
+        }
     }
     
     NSNumber* renderingOrder = dict[@"renderingOrder"];

@@ -16,7 +16,7 @@ class ARKitMaterialProperty {
   /// Specifies the location of an image file
   final String url;
 
-  final ARKitVideoProperty videoProperty;
+  final Map<String,dynamic> videoProperty;
 
   Map<String, dynamic> toMap() => <String, dynamic>{
         'color': color?.value,
