@@ -434,18 +434,18 @@ static NSMutableSet *g_mSet = NULL;
 }
 
 - (void) updateIsPlay:(FlutterMethodCall*)call andResult:(FlutterResult)result{
-    //TODO
     NSString* name = call.arguments[@"name"];
     SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
 
-    SKScene *scene = node.geometry.firstMaterial.diffuse.contents;
-    NSLog(@"####### scene=%@", scene);
-    for (SKVideoNode *videoNode in scene.children){
-        if ([call.arguments[@"isPlay"] boolValue]){
-            NSLog(@"###### videoPlay=%@", videoNode );
-            videoNode.play;
-        }else{
-            videoNode.pause;
+    NSLog(@"###### node.geometry.contents=%@", node.geometry.firstMaterial.diffuse.contents );
+    if([node.geometry.firstMaterial.diffuse.contents isMemberOfClass:[SKScene class]]){
+        SKScene *scene = node.geometry.firstMaterial.diffuse.contents;
+        for (SKVideoNode *videoNode in scene.children){
+            if ([call.arguments[@"isPlay"] boolValue]){
+                videoNode.play;
+            }else{
+                videoNode.pause;
+            }
         }
     }
     
