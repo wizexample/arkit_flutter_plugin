@@ -609,13 +609,23 @@ static NSMutableSet *g_mSet = NULL;
     }
     if (dict[@"isPlay"] != nil){
         //TODO
-        SKScene *scene = node.geometry.firstMaterial.diffuse.contents;
-        for (SKVideoNode *videoNode in scene.children){
-            if ([dict[@"isPlay"] boolValue]){
-                NSLog(@"###### videoPlay=%@", videoNode );
-                videoNode.play;
-            }else{
-                videoNode.pause;
+        // SKScene *scene = node.geometry.firstMaterial.diffuse.contents;
+        // for (SKVideoNode *videoNode in scene.children){
+        //     if ([dict[@"isPlay"] boolValue]){
+        //         NSLog(@"###### videoPlay=%@", videoNode );
+        //         videoNode.play;
+        //     }else{
+        //         videoNode.pause;
+        //     }
+        // }
+        if([node.geometry.firstMaterial.diffuse.contents isMemberOfClass:[SKScene class]]){
+            SKScene *scene = node.geometry.firstMaterial.diffuse.contents;
+            for (SKVideoNode *videoNode in scene.children){
+                if ([dict[@"isPlay"] boolValue]){
+                    videoNode.play;
+                }else{
+                    videoNode.pause;
+                }
             }
         }
     }
