@@ -111,6 +111,7 @@
     [self onStopAnimation:call andResult:result];
   } else if ([[call method] isEqualToString:@"dispose"]) {
     [self.sceneView.session pause];
+    NSLog(@"ARKit is dispose");
   } else if ([[call method] isEqualToString:@"initStartWorldTrackingSessionWithImage"]) {
     [self initStartWorldTrackingSessionWithImage:call result:result];
   } else if ([[call method] isEqualToString:@"addImageRunWithConfigAndImage"]) {
