@@ -110,6 +110,7 @@
     
         AVPlayerItem *playerItem = [[AVPlayerItem alloc] initWithURL: videoURL];
         AVPlayer *player = [[AVPlayer alloc] initWithPlayerItem: playerItem];
+        player.play;
 
         //TODO 動画ループ処理
         if ([tmp[@"isLoop"] boolValue]){
