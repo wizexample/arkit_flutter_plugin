@@ -31,7 +31,7 @@
         selector = @selector(getCapsule:);
     // } else if ([geometryArguments[@"dartType"] isEqualToString:@"ARKitFace"]) {
     //     selector = @selector(getFace:withDeivce:);
-    // }
+    }
     
     if (selector == nil)
         return nil;
