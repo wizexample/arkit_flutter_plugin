@@ -29,9 +29,9 @@
         selector = @selector(getTorus:);
     } else if ([geometryArguments[@"dartType"] isEqualToString:@"ARKitCapsule"]) {
         selector = @selector(getCapsule:);
-    } else if ([geometryArguments[@"dartType"] isEqualToString:@"ARKitFace"]) {
-        selector = @selector(getFace:withDeivce:);
-    }
+    // } else if ([geometryArguments[@"dartType"] isEqualToString:@"ARKitFace"]) {
+    //     selector = @selector(getFace:withDeivce:);
+    // }
     
     if (selector == nil)
         return nil;
@@ -261,8 +261,8 @@
     return [SCNCapsule capsuleWithCapRadius:[capRadius floatValue] height:[height floatValue]];
 }
 
-+ (ARSCNFaceGeometry *) getFace:(NSDictionary *) geometryArguments withDeivce:(id) device{
-    return [ARSCNFaceGeometry faceGeometryWithDevice:device];
-}
+// + (ARSCNFaceGeometry *) getFace:(NSDictionary *) geometryArguments withDeivce:(id) device{
+//     return [ARSCNFaceGeometry faceGeometryWithDevice:device];
+// }
 
 @end
