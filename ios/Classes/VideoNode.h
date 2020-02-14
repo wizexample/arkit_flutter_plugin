@@ -1,5 +1,4 @@
 #import <Foundation/Foundation.h>
-@import Scenekit;
 @import ARKit;
 
 @interface VideoNode : SCNNode
