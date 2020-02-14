@@ -111,6 +111,11 @@
         AVPlayerItem *playerItem = [[AVPlayerItem alloc] initWithURL: videoURL];
         AVPlayer *player = [[AVPlayer alloc] initWithPlayerItem: playerItem];
 
+        //ここまでgeometryArgumentsを全て渡すようにする
+        //SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:geometryArguments[name] recursively:YES];
+        //node = (VideoNode*)node;
+        //node.player = player;
+
         //TODO 動画ループ処理
         if ([tmp[@"isLoop"] boolValue]){
            player.actionAtItemEnd = AVPlayerActionAtItemEndNone;

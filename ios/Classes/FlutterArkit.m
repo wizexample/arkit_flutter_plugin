@@ -453,6 +453,31 @@ static NSMutableSet *g_mSet = NULL;
     result(nil);
 }
 
+///IsLoop設定
+// - (void) updateIsLoop:(FlutterMethodCall*)call andResult:(FlutterResult)result{
+//     NSString* name = call.arguments[@"name"];
+//     SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
+
+
+//     if ([call.arguments[@"isLoop"] boolValue]){
+//          VideoNode videoNode = (VideoNode*)node;  
+        //     videoNode.player.actionAtItemEnd = AVPlayerActionAtItemEndNone;
+        //    [[NSNotificationCenter defaultCenter] addObserver:self
+        //                                             selector:@selector(playerItemDidReachEnd:)
+        //                                                 name:AVPlayerItemDidPlayToEndTimeNotification
+        //                                               object:[videoNode.player currentItem]];
+//       }
+    
+//     result(nil);
+// }
+
+//Videoループ処理
+//現在は動画の最初に戻しているが、それを途中でできるのか。。。
+// + (void) playerItemDidReachEnd:(NSNotification *)notification {
+//     AVPlayerItem *p = [notification object];
+//     [p seekToTime:kCMTimeZero];
+// }
+
 - (void) updateSingleProperty:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
     SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
@@ -575,6 +600,8 @@ static NSMutableSet *g_mSet = NULL;
         }
     } else if([dict[@"dartType"] isEqualToString:@"ARKitVideoNode"]){
       //TODO VideoNode作成
+      //videoNode = [VideoNode nodeWithGeometry:geometry];
+      //node = (SCNNode*)videoNode;
       node = [SCNNode nodeWithGeometry:geometry];
     } else {
         return nil;

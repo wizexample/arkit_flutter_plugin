@@ -19,7 +19,9 @@ class ARKitVideoNode extends ARKitNode {
     int renderingOrder,
     bool isHidden,
     bool isPlay,
+    // bool isLoop,
   })  : isPlay = ValueNotifier(isPlay),
+        // isLoop = ValueNotifier(isLoop),
         super(
           geometry: geometry,
           physicsBody: physicsBody,
@@ -34,6 +36,7 @@ class ARKitVideoNode extends ARKitNode {
         );
 
   final ValueNotifier<bool> isPlay;
+  // final ValueNotifier<bool> isLoop;
 
   @override
   Map<String, dynamic> toMap() => <String, dynamic>{
@@ -44,6 +47,7 @@ class ARKitVideoNode extends ARKitNode {
         'rotation': convertVector4ToMap(rotation.value),
         'isHidden': isHidden.value,
         'isPlay': isPlay.value,
+        // 'isLoop': isLoop.value,
       }
         ..addAll(super.toMap())
         ..removeWhere((String k, dynamic v) => v == null);
