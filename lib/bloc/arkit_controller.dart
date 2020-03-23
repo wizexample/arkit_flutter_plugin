@@ -231,7 +231,7 @@ class ARKitController {
         : null;
   }
 
-  Future<void> playAnimation({
+  Future<void> startAnimation({
     @required String nodeName,
     @required String key,
     @required String sceneName,
@@ -242,7 +242,7 @@ class ARKitController {
     assert(sceneName != null);
     assert(animationIdentifier != null);
 
-    return _channel.invokeMethod('playAnimation', {
+    return _channel.invokeMethod('startAnimation', {
       'nodeName': nodeName,
       'key': key,
       'sceneName': sceneName,

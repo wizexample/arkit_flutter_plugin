@@ -108,8 +108,8 @@
     [self onProjectPoint:call andResult:result];
   } else if ([[call method] isEqualToString:@"cameraProjectionMatrix"]) {
     [self onCameraProjectionMatrix:call andResult:result];
-  } else if ([[call method] isEqualToString:@"playAnimation"]) {
-    [self onPlayAnimation:call andResult:result];
+  } else if ([[call method] isEqualToString:@"startAnimation"]) {
+    [self onStartAnimation:call andResult:result];
   } else if ([[call method] isEqualToString:@"stopAnimation"]) {
     [self onStopAnimation:call andResult:result];
   } else if ([[call method] isEqualToString:@"dispose"]) {
@@ -518,7 +518,7 @@ static NSMutableSet *g_mSet = NULL;
     result(coded);
 }
 
-- (void) onPlayAnimation:(FlutterMethodCall*)call andResult:(FlutterResult)result{
+- (void) onStartAnimation:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* key = call.arguments[@"key"];
     NSString* sceneName = call.arguments[@"sceneName"];
     NSString* animationIdentifier = call.arguments[@"animationIdentifier"];
@@ -593,8 +593,8 @@ static NSMutableSet *g_mSet = NULL;
     } else if([dict[@"dartType"] isEqualToString:@"ARKitVideoNode"]){
         //TODO VideoNode作成
         node = [SCNNode nodeWithGeometry:geometry];
-//        SCNProgram* scnProgram = [[SCNProgram alloc] init];
-//        scnProgram.fragmentFunctionName = @"fragmentShader";
+        SCNProgram* scnProgram = [[SCNProgram alloc] init];
+        scnProgram.fragmentFunctionName = @"fragmentShader";
 //        node.geometry.firstMaterial.program = scnProgram;
     } else {
         return nil;
