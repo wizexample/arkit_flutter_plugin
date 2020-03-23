@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'dart:typed_data';
+
 import 'package:arkit_plugin/arkit_node.dart';
 import 'package:arkit_plugin/arkit_video_node.dart';
+import 'package:arkit_plugin/bloc/arkit_arplane_detection.dart';
+import 'package:arkit_plugin/bloc/arkit_configuration.dart';
+import 'package:arkit_plugin/bloc/arkit_world_alignment.dart';
 import 'package:arkit_plugin/geometries/arkit_anchor.dart';
 import 'package:arkit_plugin/geometries/arkit_box.dart';
 import 'package:arkit_plugin/geometries/arkit_capsule.dart';
@@ -13,18 +17,15 @@ import 'package:arkit_plugin/geometries/arkit_sphere.dart';
 import 'package:arkit_plugin/geometries/arkit_text.dart';
 import 'package:arkit_plugin/geometries/arkit_torus.dart';
 import 'package:arkit_plugin/geometries/arkit_tube.dart';
+import 'package:arkit_plugin/hit/arkit_hit_test_result.dart';
 import 'package:arkit_plugin/hit/arkit_node_pan_result.dart';
 import 'package:arkit_plugin/hit/arkit_node_pinch_result.dart';
 import 'package:arkit_plugin/light/arkit_light_estimate.dart';
 import 'package:arkit_plugin/utils/matrix4_utils.dart';
-import 'package:arkit_plugin/bloc/arkit_arplane_detection.dart';
 import 'package:arkit_plugin/utils/vector_utils.dart';
-import 'package:arkit_plugin/hit/arkit_hit_test_result.dart';
-import 'package:arkit_plugin/bloc/arkit_configuration.dart';
-import 'package:arkit_plugin/bloc/arkit_world_alignment.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:vector_math/vector_math_64.dart';
 
 typedef ARKitPluginCreatedCallback = void Function(ARKitController controller);
@@ -76,14 +77,16 @@ class ARKitController {
   //   });
   // }
 
-  static Future<bool> isARKitWorldTrackingSessionConfigurationSupported() async{
+  static Future<bool>
+      isARKitWorldTrackingSessionConfigurationSupported() async {
     var channel = MethodChannel('prepare_arkit');
-    return await channel.invokeMethod('isARKitWorldTrackingSessionConfigurationSupported');
+    return await channel
+        .invokeMethod('isARKitWorldTrackingSessionConfigurationSupported');
   }
 
-///
-/// Dynamic loading ARKitImageAnchor
-///
+  ///
+  /// Dynamic loading ARKitImageAnchor
+  ///
   ARKitController.initStartWorldTrackingSessionWithImage(
     int id,
     ARKitConfiguration configuration,
@@ -122,7 +125,8 @@ class ARKitController {
     });
   }
 
-  void addImageRunWithConfigAndImage(Uint8List bytes, int lengthInBytes, String imageName, double markerSizeMeter) {
+  void addImageRunWithConfigAndImage(Uint8List bytes, int lengthInBytes,
+      String imageName, double markerSizeMeter) {
     _channel.invokeMethod<void>('addImageRunWithConfigAndImage', {
       'imageBytes': bytes,
       'imageLength': lengthInBytes,
@@ -136,7 +140,7 @@ class ARKitController {
       'runOptions': runOptions,
     });
   }
-  
+
   MethodChannel _channel;
 
   /// This is called when a session fails.
@@ -225,15 +229,18 @@ class ARKitController {
         : null;
   }
 
-  Future<void> playAnimation(
-      {@required String key,
-      @required String sceneName,
-      @required String animationIdentifier}) {
+  Future<void> playAnimation({
+    @required String nodeName,
+    @required String key,
+    @required String sceneName,
+    @required String animationIdentifier,
+  }) {
     assert(key != null);
     assert(sceneName != null);
     assert(animationIdentifier != null);
 
     return _channel.invokeMethod('playAnimation', {
+      'nodeName': nodeName,
       'key': key,
       'sceneName': sceneName,
       'animationIdentifier': animationIdentifier,
@@ -241,11 +248,13 @@ class ARKitController {
   }
 
   Future<void> stopAnimation({
+    @required String nodeName,
     @required String key,
   }) {
     assert(key != null);
 
     return _channel.invokeMethod('stopAnimation', {
+      'nodeName': nodeName,
       'key': key,
     });
   }
@@ -333,7 +342,7 @@ class ARKitController {
 
     node.isHidden.addListener(() => _handleIsHiddenChanged(node));
 
-    if (node is ARKitVideoNode){
+    if (node is ARKitVideoNode) {
       node.isPlay.addListener(() => _handleIsPlayChanged(node));
     }
 
@@ -487,9 +496,9 @@ class ARKitController {
         _getHandlerParams(node, {'isHidden': node.isHidden.value}));
   }
 
-  void _handleIsPlayChanged(ARKitVideoNode node){
+  void _handleIsPlayChanged(ARKitVideoNode node) {
     _channel.invokeMethod<void>('isPlayChanged',
-      _getHandlerParams(node, {'isPlay': node.isPlay.value}));
+        _getHandlerParams(node, {'isPlay': node.isPlay.value}));
   }
 
   void _updateMaterials(ARKitNode node) {

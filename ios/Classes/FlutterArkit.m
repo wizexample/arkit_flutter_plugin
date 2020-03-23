@@ -4,6 +4,7 @@
 #import "SceneViewDelegate.h"
 #import "CodableUtils.h"
 #import "DecodableUtils.h"
+#import <SceneKit/ModelIO.h>
 
 @interface FlutterArkitFactory()
 @property NSObject<FlutterBinaryMessenger>* messenger;
@@ -519,22 +520,26 @@ static NSMutableSet *g_mSet = NULL;
     NSString* key = call.arguments[@"key"];
     NSString* sceneName = call.arguments[@"sceneName"];
     NSString* animationIdentifier = call.arguments[@"animationIdentifier"];
-    
-    NSURL* sceneURL = [NSBundle.mainBundle URLForResource:sceneName withExtension:@"dae"];
+    NSString* nodeName = call.arguments[@"nodeName"];
+    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:nodeName recursively:YES];
+
+    NSURL* sceneURL = [[NSURL alloc] initFileURLWithPath: sceneName];
     SCNSceneSource* sceneSource = [SCNSceneSource sceneSourceWithURL:sceneURL options:nil];
-    
+
     CAAnimation* animationObject = [sceneSource entryWithIdentifier:animationIdentifier withClass:[CAAnimation self]];
     animationObject.repeatCount = 1;
     animationObject.fadeInDuration = 1;
     animationObject.fadeOutDuration = 0.5;
-    [_sceneView.scene.rootNode addAnimation:animationObject forKey:key];
+    [node addAnimation:animationObject forKey:key];
     
     result(nil);
 }
 
 - (void) onStopAnimation:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* key = call.arguments[@"key"];
-    [_sceneView.scene.rootNode removeAnimationForKey:key blendOutDuration:0.5];
+    NSString* nodeName = call.arguments[@"nodeName"];
+    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:nodeName recursively:YES];
+    [node removeAnimationForKey:key blendOutDuration:0.5];
     result(nil);
 }
 
@@ -559,13 +564,17 @@ static NSMutableSet *g_mSet = NULL;
 
 - (SCNNode *) getNodeWithGeometry:(SCNGeometry *)geometry fromDict:(NSDictionary *)dict {
     SCNNode* node;
+    NSLog(@"**** getNodeWithGeometry");
     if ([dict[@"dartType"] isEqualToString:@"ARKitNode"]) {
         node = [SCNNode nodeWithGeometry:geometry];
     } else if ([dict[@"dartType"] isEqualToString:@"ARKitReferenceNode"]) {
-        NSString* url = dict[@"url"];
-        NSURL* referenceURL = [[NSBundle mainBundle] URLForResource:url withExtension:nil];
-        node = [SCNReferenceNode referenceNodeWithURL:referenceURL];
-        [(SCNReferenceNode*)node load];
+        NSString* localPath = dict[@"object3DFileName"];
+        NSURL* referenceURL = [[NSURL alloc] initFileURLWithPath: localPath];
+        node = [SCNNode node];
+        SCNScene *scene = [SCNScene sceneWithURL: referenceURL options: nil error: nil];
+        for (id childNode in scene.rootNode.childNodes){
+            [node addChildNode:childNode];
+        }
     } else if([dict[@"dartType"] isEqualToString:@"ARKitObjectNode"]){
         node = [SCNNode nodeWithGeometry:geometry];
         NSURL *localPath = [[NSURL alloc] initFileURLWithPath: dict[@"localPath"]];
