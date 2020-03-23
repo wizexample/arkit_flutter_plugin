@@ -171,6 +171,8 @@ class ARKitController {
   /// Called when a node will be updated with data from the given anchor.
   AnchorEventHandler onUpdateNodeForAnchor;
 
+  static const int ANIMATION_REPEAT_INFINITE = -1;
+
   final bool debug;
 
   void dispose() {
@@ -234,6 +236,7 @@ class ARKitController {
     @required String key,
     @required String sceneName,
     @required String animationIdentifier,
+    int repeatCount = 0,
   }) {
     assert(key != null);
     assert(sceneName != null);
@@ -244,6 +247,7 @@ class ARKitController {
       'key': key,
       'sceneName': sceneName,
       'animationIdentifier': animationIdentifier,
+      'repeatCount': repeatCount,
     });
   }
 

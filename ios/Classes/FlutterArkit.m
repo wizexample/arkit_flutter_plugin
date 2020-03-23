@@ -5,6 +5,8 @@
 #import "CodableUtils.h"
 #import "DecodableUtils.h"
 #import <SceneKit/ModelIO.h>
+#import <Metal/Metal.h>
+#import <MetalKit/MetalKit.h>
 
 @interface FlutterArkitFactory()
 @property NSObject<FlutterBinaryMessenger>* messenger;
@@ -522,12 +524,18 @@ static NSMutableSet *g_mSet = NULL;
     NSString* animationIdentifier = call.arguments[@"animationIdentifier"];
     NSString* nodeName = call.arguments[@"nodeName"];
     SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:nodeName recursively:YES];
+    float repeatCount = [call.arguments[@"repeatCount"] floatValue];
+    if (repeatCount < 0) {
+        repeatCount = HUGE_VALF;
+    } else {
+        repeatCount ++;
+    }
 
     NSURL* sceneURL = [[NSURL alloc] initFileURLWithPath: sceneName];
     SCNSceneSource* sceneSource = [SCNSceneSource sceneSourceWithURL:sceneURL options:nil];
 
     CAAnimation* animationObject = [sceneSource entryWithIdentifier:animationIdentifier withClass:[CAAnimation self]];
-    animationObject.repeatCount = 1;
+    animationObject.repeatCount = repeatCount;
     animationObject.fadeInDuration = 1;
     animationObject.fadeOutDuration = 0.5;
     [node addAnimation:animationObject forKey:key];
@@ -583,8 +591,11 @@ static NSMutableSet *g_mSet = NULL;
             [node addChildNode:childNode];
         }
     } else if([dict[@"dartType"] isEqualToString:@"ARKitVideoNode"]){
-      //TODO VideoNode作成
-      node = [SCNNode nodeWithGeometry:geometry];
+        //TODO VideoNode作成
+        node = [SCNNode nodeWithGeometry:geometry];
+//        SCNProgram* scnProgram = [[SCNProgram alloc] init];
+//        scnProgram.fragmentFunctionName = @"fragmentShader";
+//        node.geometry.firstMaterial.program = scnProgram;
     } else {
         return nil;
     }
