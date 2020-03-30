@@ -103,11 +103,10 @@
     } else if (propertyString[@"url"] != nil) {
         return propertyString[@"url"];
     } else if (propertyString[@"videoProperty"] != nil) {
-        NSDictionary* tmp = propertyString[@"videoProperty"];
-        NSLog(@"####### videoProperty=%@", tmp);
+        NSDictionary* videoProperty = propertyString[@"videoProperty"];
+        NSLog(@"####### videoProperty=%@", videoProperty);
 
-        NSURL *videoURL = [[NSURL alloc] initFileURLWithPath: tmp[@"videoPath"]];
-        VideoView* videoView = [[VideoView alloc] initWithUrl: videoURL isLoop: [tmp[@"isLoop"] boolValue]];
+        VideoView* videoView = [[VideoView alloc] initWithProperties: videoProperty];
 
         return videoView;
     }
@@ -256,11 +255,28 @@
 @property CGColorSpaceRef colorSpace;
 @property MTLSize threadsPerThreadgroup;
 @property MTLSize threadgroupsPerGrid;
+@property CGFloat keyingR;
+@property CGFloat keyingG;
+@property CGFloat keyingB;
+@property float keyingThreshold;
+@property float keyingSlope;
+@property int mode;
 @end
 
 @implementation VideoView
 
-- (instancetype)initWithUrl:(NSURL*)videoURL isLoop:(Boolean) isLoop {
+- (instancetype)initWithProperties:(NSDictionary *)videoProperties {
+    NSURL *videoURL = [[NSURL alloc] initFileURLWithPath: videoProperties[@"videoPath"]];
+    bool isLoop = [videoProperties[@"isLoop"] boolValue];
+    NSNumber* tempColor = videoProperties[@"chromaKeyColor"];
+    UIColor* keyingColor = [UIColor fromRGB: [tempColor integerValue]];
+    [keyingColor getRed:&_keyingR green:&_keyingG blue:&_keyingB alpha:nil];
+    _keyingThreshold = (videoProperties[@"keyingThreshold"] != nil) ?
+                       [videoProperties[@"keyingThreshold"] floatValue] : 0.8;
+    _keyingSlope = (videoProperties[@"keyingThreshold"] != nil) ?
+                       [videoProperties[@"keyingSlope"] floatValue] : 0.2;
+    _mode = ([videoProperties[@"enableChromaKey"] boolValue]) ? 1 : ([videoProperties[@"enableHalfMask"] boolValue]) ? 2 : 0;
+
     id<MTLDevice> device = MTLCreateSystemDefaultDevice();
     AVURLAsset *videoAsset = [[AVURLAsset alloc] initWithURL: videoURL options: nil];
     AVAssetTrack *videoTrack = [videoAsset tracksWithMediaType:AVMediaTypeVideo][0];
@@ -352,7 +368,7 @@
     [commandEncoder setTexture:tempDrawable.texture atIndex:0];
     [commandEncoder setTexture:drawable.texture atIndex:1];
 
-    float factors[] = {0, 0, 0, 0.8, 0.2, 2};
+    float factors[] = {_keyingR, _keyingG, _keyingB, _keyingThreshold, _keyingSlope, _mode};
     for (int i = 0; i < sizeof(factors); i ++) {
         float factor = factors[i];
         id<MTLBuffer> buffer = [device newBufferWithBytes:&factor length:16 options:MTLResourceStorageModeShared];
