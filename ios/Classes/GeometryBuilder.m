@@ -2,6 +2,7 @@
 #import "ArkitPlugin.h"
 #import "Color.h"
 #import "DecodableUtils.h"
+#import "ArkitPlugin.h"
 
 @implementation GeometryBuilder
 
@@ -79,9 +80,10 @@
 }
 
 + (void) applyMaterialProperty: (NSString*) propertyName withPropertyDictionary: (NSDictionary*) dict and:(SCNMaterial *) material {
-    if (dict[propertyName] != nil) {
+    NSDictionary* propertyString = dict[propertyName];
+    if (propertyString != nil) {
         SCNMaterialProperty *property = [material valueForKey: propertyName];
-        property.contents = [self getMaterialProperty:dict[propertyName]];
+        property.contents = [self getMaterialProperty:propertyString];
     }
 }
 
@@ -89,8 +91,7 @@
     if (propertyString[@"image"] != nil) {
         UIImage* img = [UIImage imageNamed:propertyString[@"image"]];
         
-        if(img == nil)
-        {
+        if(img == nil) {
             NSString* asset_path = propertyString[@"image"];
             NSString* path = [[NSBundle mainBundle] pathForResource:[[ArkitPlugin registrar] lookupKeyForAsset:asset_path] ofType:nil];
             img = [UIImage imageNamed: path];
@@ -107,30 +108,47 @@
         NSLog(@"####### videoProperty=%@", tmp);
 
         NSURL *videoURL = [[NSURL alloc] initFileURLWithPath: tmp[@"videoPath"]];
-    
-        AVPlayerItem *playerItem = [[AVPlayerItem alloc] initWithURL: videoURL];
-        AVPlayer *player = [[AVPlayer alloc] initWithPlayerItem: playerItem];
+        VideoView* videoView = [[VideoView alloc] initWithUrl: videoURL isLoop: [tmp[@"isLoop"] boolValue]];
 
-        //TODO 動画ループ処理
-        if ([tmp[@"isLoop"] boolValue]){
-           player.actionAtItemEnd = AVPlayerActionAtItemEndNone;
-           [[NSNotificationCenter defaultCenter] addObserver:self
-                                                    selector:@selector(playerItemDidReachEnd:)
-                                                        name:AVPlayerItemDidPlayToEndTimeNotification
-                                                      object:[player currentItem]];
-        }
-
-        AVURLAsset *videoAsset = [[AVURLAsset alloc] initWithURL: videoURL options: nil];
-        AVAssetTrack *videoTrack = [videoAsset tracksWithMediaType:AVMediaTypeVideo][0];
-
-        SKScene *videoScene = [SKScene sceneWithSize:CGSizeMake(videoTrack.naturalSize.width,videoTrack.naturalSize.height)];
-
-        SKVideoNode *videoNode = [SKVideoNode videoNodeWithAVPlayer: player];
-        videoNode.yScale = -1.0;
-        videoNode.position = CGPointMake(videoTrack.naturalSize.width / 2,videoTrack.naturalSize.height / 2);
-
-        [videoScene addChild:videoNode];
-        return videoScene;
+        return videoView;
+//        SCNPlane* videoPlane = [[SCNPlane alloc] init];
+//        [videoPlane setWidth:[videoView width]];
+//        videoPlane.firstMaterial.diffuse.contents = videoView;
+//        videoPlane.firstMaterial.doubleSided = true;
+//
+//        SCNNode* videoNode2 = [[SCNNode alloc] init];
+//        [videoNode2 setGeometry: videoPlane];
+//
+//
+//        AVPlayerItem *playerItem = [[AVPlayerItem alloc] initWithURL: videoURL];
+//        AVPlayer *player = [[AVPlayer alloc] initWithPlayerItem: playerItem];
+//
+//
+//        //TODO 動画ループ処理
+//        if ([tmp[@"isLoop"] boolValue]){
+//           player.actionAtItemEnd = AVPlayerActionAtItemEndNone;
+//           [[NSNotificationCenter defaultCenter] addObserver:self
+//                                                    selector:@selector(playerItemDidReachEnd:)
+//                                                        name:AVPlayerItemDidPlayToEndTimeNotification
+//                                                      object:[player currentItem]];
+//        }
+//
+//        AVURLAsset *videoAsset = [[AVURLAsset alloc] initWithURL: videoURL options: nil];
+//        AVAssetTrack *videoTrack = [videoAsset tracksWithMediaType:AVMediaTypeVideo][0];
+//
+//        SKScene *videoScene = [SKScene sceneWithSize:CGSizeMake(videoTrack.naturalSize.width,videoTrack.naturalSize.height)];
+//
+//        SKVideoNode *videoNode = [SKVideoNode videoNodeWithAVPlayer: player];
+//
+//        videoNode.yScale = -1.0;
+//        videoNode.position = CGPointMake(videoTrack.naturalSize.width / 2,videoTrack.naturalSize.height / 2);
+////
+////        [videoNode2 setScale: SCNVector3Make(videoNode2.scale.x, -1.0, videoNode2.scale.z)];
+////        [videoNode2 setPosition: SCNVector3Make(videoTrack.naturalSize.width / 2, videoTrack.naturalSize.height / 2, videoNode2.position.z)];
+////
+//        [videoScene addChild:videoNode];
+//
+//        return videoScene;
     }
     
     return nil;
@@ -263,5 +281,129 @@
 // + (ARSCNFaceGeometry *) getFace:(NSDictionary *) geometryArguments withDeivce:(id) device{
 //     return [ARSCNFaceGeometry faceGeometryWithDevice:device];
 // }
+
+@end
+
+@interface VideoView()
+@property CIContext* context;
+@property id<MTLComputePipelineState> pipelineState;
+@property id<MTLLibrary> library;
+@property AVPlayer* player;
+@property AVPlayerItemVideoOutput* output;
+@property id<MTLCommandQueue> commandQueue;
+@property MTKView* bufferMtkView;
+@property CGColorSpaceRef colorSpace;
+@property MTLSize threadsPerThreadgroup;
+@property MTLSize threadgroupsPerGrid;
+@end
+
+@implementation VideoView
+
+- (instancetype)initWithUrl:(NSURL*)videoURL isLoop:(Boolean) isLoop {
+    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    AVURLAsset *videoAsset = [[AVURLAsset alloc] initWithURL: videoURL options: nil];
+    AVAssetTrack *videoTrack = [videoAsset tracksWithMediaType:AVMediaTypeVideo][0];
+    CGRect frame = CGRectMake(0, 0, videoTrack.naturalSize.width, videoTrack.naturalSize.height);
+    self = [super initWithFrame:frame device:device];
+    if (self) {
+        _colorSpace = CGColorSpaceCreateDeviceRGB();
+        _context = [CIContext contextWithMTLDevice:device];
+        NSDictionary *pixBuffAttributes = @{(id)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange)};
+        _output = [[AVPlayerItemVideoOutput alloc] initWithPixelBufferAttributes:pixBuffAttributes];
+
+
+        self.framebufferOnly = false;
+        [self setOpaque:false];
+        self.backgroundColor = UIColor.clearColor;
+        
+        _commandQueue = [device newCommandQueue];
+        NSBundle* bundle = [NSBundle bundleForClass:[self class]];
+        _library = [device newDefaultLibraryWithBundle:bundle error:nil];
+        _pipelineState = [device newComputePipelineStateWithFunction:[_library newFunctionWithName:@"ChromaKeyFilter"] error:nil];
+        _threadsPerThreadgroup = MTLSizeMake(16, 16, 1);
+        
+        _bufferMtkView = [[MTKView alloc] initWithFrame:frame device:device];
+        _bufferMtkView.translatesAutoresizingMaskIntoConstraints = false;
+        _bufferMtkView.framebufferOnly = false;
+        [_bufferMtkView setHidden:true];
+        [self addSubview:_bufferMtkView];
+        
+        _threadgroupsPerGrid = MTLSizeMake(
+                                           (int)ceilf((float)frame.size.width)/(float)_threadsPerThreadgroup.width,
+                                           (int)ceilf((float)frame.size.height)/(float)_threadsPerThreadgroup.height,
+                                           1);
+        
+        AVPlayerItem *playerItem = [[AVPlayerItem alloc] initWithURL: videoURL];
+        _player = [[AVPlayer alloc] initWithPlayerItem: playerItem];
+        
+        //TODO 動画ループ処理
+        if (isLoop){
+           _player.actionAtItemEnd = AVPlayerActionAtItemEndNone;
+           [[NSNotificationCenter defaultCenter] addObserver:self
+                                                    selector:@selector(playerItemDidReachEnd:)
+                                                        name:AVPlayerItemDidPlayToEndTimeNotification
+                                                      object:[_player currentItem]];
+        }
+        [_player.currentItem addOutput:_output];
+        
+        _width = videoTrack.naturalSize.width;
+        _height = videoTrack.naturalSize.height;
+        
+        self.drawableSize = self.bounds.size;
+        _bufferMtkView.drawableSize = _bufferMtkView.bounds.size;
+    }
+    return self;
+}
+
+- (void) play {
+    NSLog(@"videoView play");
+    [_player play];
+}
+
+- (void) pause {
+    NSLog(@"videoView pause");
+    [_player pause];
+}
+
+- (void)drawRect:(CGRect)rect {
+    self.drawableSize = self.bounds.size;
+    _bufferMtkView.drawableSize = _bufferMtkView.bounds.size;
+
+    id <MTLDevice> device = self.device;
+    id <CAMetalDrawable> drawable = self.currentDrawable;
+    id <CAMetalDrawable> tempDrawable = _bufferMtkView.currentDrawable;
+    
+    CMTime time = _player.currentTime;
+    CVPixelBufferRef pixelBuffer = [_output copyPixelBufferForItemTime:time itemTimeForDisplay:nil];
+    CIImage* image = [[CIImage alloc]initWithCVPixelBuffer:pixelBuffer];
+    
+    if (drawable == nil || tempDrawable == nil || image == nil) {
+        return;
+    }
+
+    id<MTLCommandBuffer> commandBuffer = [_commandQueue commandBuffer];
+
+    [_context render:image toMTLTexture:tempDrawable.texture commandBuffer:nil bounds:self.bounds colorSpace:_colorSpace];
+    self.colorPixelFormat = tempDrawable.texture.pixelFormat;
+
+    id<MTLComputeCommandEncoder> commandEncoder = [commandBuffer computeCommandEncoder];
+    [commandEncoder setComputePipelineState:_pipelineState];
+    [commandEncoder setTexture:tempDrawable.texture atIndex:0];
+    [commandEncoder setTexture:drawable.texture atIndex:1];
+
+    float factors[] = {0, 1, 0, 0.43, 0.11};
+    for (int i = 0; i < sizeof(factors); i ++) {
+        float factor = factors[i];
+        id<MTLBuffer> buffer = [device newBufferWithBytes:&factor length:16 options:MTLResourceStorageModeShared];
+        [commandEncoder setBuffer:buffer offset:0 atIndex:i];
+    }
+
+    [commandEncoder dispatchThreadgroups:_threadgroupsPerGrid threadsPerThreadgroup:_threadsPerThreadgroup];
+    [commandEncoder endEncoding];
+
+    [commandBuffer presentDrawable:drawable];
+    [commandBuffer commit];
+    [commandBuffer waitUntilCompleted];
+}
 
 @end

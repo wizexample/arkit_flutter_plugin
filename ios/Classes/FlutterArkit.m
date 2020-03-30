@@ -5,8 +5,7 @@
 #import "CodableUtils.h"
 #import "DecodableUtils.h"
 #import <SceneKit/ModelIO.h>
-#import <Metal/Metal.h>
-#import <MetalKit/MetalKit.h>
+#import "ArkitPlugin.h"
 
 @interface FlutterArkitFactory()
 @property NSObject<FlutterBinaryMessenger>* messenger;
@@ -452,6 +451,14 @@ static NSMutableSet *g_mSet = NULL;
             }
         }
     }
+    if([node.geometry.firstMaterial.diffuse.contents isMemberOfClass:[VideoView class]]){
+        VideoView *videoView = node.geometry.firstMaterial.diffuse.contents;
+        if ([call.arguments[@"isPlay"] boolValue]) {
+            [videoView play];
+        } else {
+            [videoView pause];
+        }
+    }
     
     result(nil);
 }
@@ -593,9 +600,22 @@ static NSMutableSet *g_mSet = NULL;
     } else if([dict[@"dartType"] isEqualToString:@"ARKitVideoNode"]){
         //TODO VideoNode作成
         node = [SCNNode nodeWithGeometry:geometry];
-        SCNProgram* scnProgram = [[SCNProgram alloc] init];
-        scnProgram.fragmentFunctionName = @"fragmentShader";
+//        SCNProgram* scnProgram = [SCNProgram program];
+//        id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+//        NSBundle* bundle = [NSBundle bundleForClass:[self class]];
+//        NSString* resources = [bundle resourcePath];
+//        id<MTLLibrary> library = [device newDefaultLibraryWithBundle:bundle error:nil];
+//
+//        scnProgram.library = library;
+//        scnProgram.fragmentFunctionName = @"fragmentShade";
+//        scnProgram.vertexFunctionName = @"vertexShader";
 //        node.geometry.firstMaterial.program = scnProgram;
+//
+//        NSString* imgPath = [resources stringByAppendingPathComponent:@"image.jpg"];
+//        UIImage* image = [UIImage imageWithContentsOfFile:imgPath];
+//
+//        SCNMaterialProperty* property = [SCNMaterialProperty materialPropertyWithContents:image];
+//        [node.geometry.firstMaterial setValue:property forKey:@"diffuseTexture"];
     } else {
         return nil;
     }
@@ -647,6 +667,14 @@ static NSMutableSet *g_mSet = NULL;
                 }else{
                     videoNode.pause;
                 }
+            }
+        }
+        if([node.geometry.firstMaterial.diffuse.contents isMemberOfClass:[VideoView class]]){
+            VideoView *videoView = node.geometry.firstMaterial.diffuse.contents;
+            if ([dict[@"isPlay"] boolValue]) {
+                [videoView play];
+            } else {
+                [videoView pause];
             }
         }
     }
@@ -762,6 +790,25 @@ static NSMutableSet *g_mSet = NULL;
         [dict setValue:[CodableUtils convertARAnchorToDictionary:result.anchor] forKey:@"anchor"];
     }
     return dict;
+}
+
+- (void) test:(NSString*) dir {
+    NSLog(@"start %@", dir);
+
+    NSFileManager *fileManager = [[NSFileManager alloc] init];
+     // ファイル一覧の場所であるpathを文字列で取得
+    NSString *path = [[NSBundle mainBundle] bundlePath];
+    NSError *error;
+     
+    // pathにあるファイル名文字列で全て取得
+    NSArray *files = [fileManager contentsOfDirectoryAtPath:[NSString stringWithFormat:@"%@/%@", path, dir] error:&error];
+     
+    if (!error) {
+        NSLog(@"%@",files);
+    }
+    for(int i = 0; i < files.count; i ++) {
+        [self test: [NSString stringWithFormat:@"%@/%@", dir, files[i]]];
+    }
 }
 
 @end
