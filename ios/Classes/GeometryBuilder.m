@@ -2,7 +2,6 @@
 #import "ArkitPlugin.h"
 #import "Color.h"
 #import "DecodableUtils.h"
-#import "ArkitPlugin.h"
 
 @implementation GeometryBuilder
 
@@ -111,44 +110,6 @@
         VideoView* videoView = [[VideoView alloc] initWithUrl: videoURL isLoop: [tmp[@"isLoop"] boolValue]];
 
         return videoView;
-//        SCNPlane* videoPlane = [[SCNPlane alloc] init];
-//        [videoPlane setWidth:[videoView width]];
-//        videoPlane.firstMaterial.diffuse.contents = videoView;
-//        videoPlane.firstMaterial.doubleSided = true;
-//
-//        SCNNode* videoNode2 = [[SCNNode alloc] init];
-//        [videoNode2 setGeometry: videoPlane];
-//
-//
-//        AVPlayerItem *playerItem = [[AVPlayerItem alloc] initWithURL: videoURL];
-//        AVPlayer *player = [[AVPlayer alloc] initWithPlayerItem: playerItem];
-//
-//
-//        //TODO 動画ループ処理
-//        if ([tmp[@"isLoop"] boolValue]){
-//           player.actionAtItemEnd = AVPlayerActionAtItemEndNone;
-//           [[NSNotificationCenter defaultCenter] addObserver:self
-//                                                    selector:@selector(playerItemDidReachEnd:)
-//                                                        name:AVPlayerItemDidPlayToEndTimeNotification
-//                                                      object:[player currentItem]];
-//        }
-//
-//        AVURLAsset *videoAsset = [[AVURLAsset alloc] initWithURL: videoURL options: nil];
-//        AVAssetTrack *videoTrack = [videoAsset tracksWithMediaType:AVMediaTypeVideo][0];
-//
-//        SKScene *videoScene = [SKScene sceneWithSize:CGSizeMake(videoTrack.naturalSize.width,videoTrack.naturalSize.height)];
-//
-//        SKVideoNode *videoNode = [SKVideoNode videoNodeWithAVPlayer: player];
-//
-//        videoNode.yScale = -1.0;
-//        videoNode.position = CGPointMake(videoTrack.naturalSize.width / 2,videoTrack.naturalSize.height / 2);
-////
-////        [videoNode2 setScale: SCNVector3Make(videoNode2.scale.x, -1.0, videoNode2.scale.z)];
-////        [videoNode2 setPosition: SCNVector3Make(videoTrack.naturalSize.width / 2, videoTrack.naturalSize.height / 2, videoNode2.position.z)];
-////
-//        [videoScene addChild:videoNode];
-//
-//        return videoScene;
     }
     
     return nil;
@@ -391,7 +352,7 @@
     [commandEncoder setTexture:tempDrawable.texture atIndex:0];
     [commandEncoder setTexture:drawable.texture atIndex:1];
 
-    float factors[] = {0, 1, 0, 0.43, 0.11};
+    float factors[] = {0, 0, 0, 0.8, 0.2, 2};
     for (int i = 0; i < sizeof(factors); i ++) {
         float factor = factors[i];
         id<MTLBuffer> buffer = [device newBufferWithBytes:&factor length:16 options:MTLResourceStorageModeShared];
@@ -404,6 +365,12 @@
     [commandBuffer presentDrawable:drawable];
     [commandBuffer commit];
     [commandBuffer waitUntilCompleted];
+}
+
+- (void) playerItemDidReachEnd:(NSNotification *)notification {
+    NSLog(@"####### playerItemDidReachEnd=%@", [notification object]);
+    AVPlayerItem *p = [notification object];
+    [p seekToTime:kCMTimeZero];
 }
 
 @end

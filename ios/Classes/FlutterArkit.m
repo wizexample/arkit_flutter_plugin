@@ -600,22 +600,6 @@ static NSMutableSet *g_mSet = NULL;
     } else if([dict[@"dartType"] isEqualToString:@"ARKitVideoNode"]){
         //TODO VideoNode作成
         node = [SCNNode nodeWithGeometry:geometry];
-//        SCNProgram* scnProgram = [SCNProgram program];
-//        id<MTLDevice> device = MTLCreateSystemDefaultDevice();
-//        NSBundle* bundle = [NSBundle bundleForClass:[self class]];
-//        NSString* resources = [bundle resourcePath];
-//        id<MTLLibrary> library = [device newDefaultLibraryWithBundle:bundle error:nil];
-//
-//        scnProgram.library = library;
-//        scnProgram.fragmentFunctionName = @"fragmentShade";
-//        scnProgram.vertexFunctionName = @"vertexShader";
-//        node.geometry.firstMaterial.program = scnProgram;
-//
-//        NSString* imgPath = [resources stringByAppendingPathComponent:@"image.jpg"];
-//        UIImage* image = [UIImage imageWithContentsOfFile:imgPath];
-//
-//        SCNMaterialProperty* property = [SCNMaterialProperty materialPropertyWithContents:image];
-//        [node.geometry.firstMaterial setValue:property forKey:@"diffuseTexture"];
     } else {
         return nil;
     }
