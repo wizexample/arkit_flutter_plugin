@@ -231,8 +231,8 @@ class ARKitController {
         : null;
   }
 
-  Future<void> startAnimation({
-    @required String nodeName,
+  Future<void> startAnimation(
+    String nodeName, {
     @required String key,
     @required String sceneName,
     @required String animationIdentifier,
@@ -251,8 +251,8 @@ class ARKitController {
     });
   }
 
-  Future<void> stopAnimation({
-    @required String nodeName,
+  Future<void> stopAnimation(
+    String nodeName, {
     @required String key,
   }) {
     assert(key != null);
