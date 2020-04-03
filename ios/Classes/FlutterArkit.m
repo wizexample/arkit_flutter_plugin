@@ -120,6 +120,10 @@
     [self addImageRunWithConfigAndImage:call result:result];
   } else if ([[call method] isEqualToString:@"startWorldTrackingSessionWithImage"]) {
     [self startWorldTrackingSessionWithImage:call result:result];
+  } else if ([call.method isEqualToString:@"screenCapture"]) {
+      [self screenCapture: call andResult: result];
+  } else if ([call.method isEqualToString:@"addNurie"]) {
+      [self addNurie: call result: result];
   } else {
     result(FlutterMethodNotImplemented);
   }
@@ -165,6 +169,29 @@
 /// Dynamic loading ARKitImageAnchor
 ///
 static NSMutableSet *g_mSet = NULL;
+
+- (void)addNurie:(FlutterMethodCall*)call result:(FlutterResult)result {
+    NSNumber* imageLengthNSNumber = call.arguments[@"imageLength"];
+    double imageLength = [imageLengthNSNumber doubleValue];
+    NSData* imageData = [((FlutterStandardTypedData*) call.arguments[@"imageBytes"]) data];
+    NSString* imageNameNSString = call.arguments[@"imageName"];
+    NSNumber* markerSizeMeterNSNumber = call.arguments[@"markerSizeMeter"];
+    double markerSizeMeter = [markerSizeMeterNSNumber doubleValue];
+    // NSLog(@"####### addImageRunWithConfigAndImage: imageLength=%@ imageName=%@ markerSizeMeter=%@", imageLength, imageNameNSString, markerSizeMeter);
+
+    //   'imageBytes': bytes,
+    //   'imageLength': lengthInBytes,
+    //   'imageName': imageName,
+    //   'markerSizeMeter': markerSizeMeter,
+
+    UIImage* uiimage = [[UIImage alloc] initWithData:imageData];
+    CGImageRef cgImage = [uiimage CGImage];
+    
+    ARReferenceImage *image = [[ARReferenceImage alloc] initWithCGImage:cgImage orientation:kCGImagePropertyOrientationUp physicalWidth:markerSizeMeter];
+    
+    image.name = imageNameNSString;
+    result(nil);
+}
 
 - (void)initStartWorldTrackingSessionWithImage:(FlutterMethodCall*)call result:(FlutterResult)result {
     NSNumber* showStatistics = call.arguments[@"showStatistics"];
@@ -558,6 +585,16 @@ static NSMutableSet *g_mSet = NULL;
     result(nil);
 }
 
+
+- (void) screenCapture:(FlutterMethodCall*)call andResult:(FlutterResult)result{
+    UIImage *image = [_sceneView snapshot];
+    UIImageWriteToSavedPhotosAlbum(image, self, @selector(onCaptureImageSaved:didFinishSavingWithError:contextInfo:), nil);
+}
+
+- (void) onCaptureImageSaved: (UIImage*)image didFinishSavingWithError:(NSError *)error contextInfo:(void *)contextInfo {
+    NSLog(@"capture image saved");
+}
+
 #pragma mark - Utils
 -(ARPlaneDetection) getPlaneFromNumber: (int) number {
   if (number == 0) {
@@ -587,8 +624,21 @@ static NSMutableSet *g_mSet = NULL;
         NSURL* referenceURL = [[NSURL alloc] initFileURLWithPath: localPath];
         node = [SCNNode node];
         SCNScene *scene = [SCNScene sceneWithURL: referenceURL options: nil error: nil];
-        for (id childNode in scene.rootNode.childNodes){
+
+//        NSURL* testUrl = [[NSURL alloc] initFileURLWithPath: dict[@"testpath"]];
+//        NSLog(@"testUrl %@ / %@", dict[@"testpath"], testUrl);
+//        UIImage* img = [UIImage imageWithContentsOfFile:dict[@"testpath"]];
+
+        for (SCNNode* childNode in scene.rootNode.childNodes){
             [node addChildNode:childNode];
+//            for (SCNMaterial* mat in childNode.geometry.materials) {
+//                [mat.diffuse setContents: img];
+//            }
+//            for (SCNNode* gcNode in childNode.childNodes){
+//                for (SCNMaterial* mat in gcNode.geometry.materials) {
+//                    [mat.diffuse setContents: img];
+//                }
+//            }
         }
     } else if([dict[@"dartType"] isEqualToString:@"ARKitObjectNode"]){
         node = [SCNNode nodeWithGeometry:geometry];

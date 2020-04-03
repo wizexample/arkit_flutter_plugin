@@ -263,6 +263,10 @@ class ARKitController {
     });
   }
 
+  void screenCapture() {
+    _channel.invokeMethod<bool>('screenCapture');
+  }
+
   Map<String, dynamic> _addParentNodeNameToParams(
       Map geometryMap, String parentNodeName) {
     if (parentNodeName?.isNotEmpty ?? false)
