@@ -11,6 +11,8 @@ API_AVAILABLE(ios(11.3))
                           binaryMessenger:(nonnull NSObject<FlutterBinaryMessenger>*)messenger;
 
 - (nonnull UIView*)view;
+- (BOOL)addNurieObject:(nonnull ARAnchor*) anchor node: (nonnull SCNNode*) node;
+- (BOOL)checkMarkerNurie:(nonnull ARAnchor*) anchor node: (nonnull SCNNode*) node;
 
 @property (readonly, nonatomic, strong, nonnull) ARSCNView *sceneView;
 @property (readonly, nonatomic, strong, nonnull) ARConfiguration *configuration;
@@ -19,4 +21,14 @@ API_AVAILABLE(ios(11.3))
 
 @interface FlutterArkitFactory : NSObject <FlutterPlatformViewFactory>
 - (nonnull instancetype)initWithMessenger:(nonnull NSObject<FlutterBinaryMessenger>*)messenger;
+@end
+
+@interface NurieParams: NSObject
+
+- (nonnull id) initWithName:(nonnull NSString*)name node:(nonnull SCNNode*)node;
+
+@property (readonly) NSString* _Nonnull name;
+@property (readonly) SCNNode* _Nonnull node;
+@property BOOL imageCaptured;
+
 @end

@@ -267,6 +267,35 @@ class ARKitController {
     _channel.invokeMethod<bool>('screenCapture');
   }
 
+  void addNurie(
+    String imageName,
+    double markerSizeMeter,
+    ARKitNode node, {
+    int lengthInBytes,
+    Uint8List bytes,
+    String filePath,
+  }) {
+    bool paramsSatisfied = false;
+    Map map = {
+      'imageName': imageName,
+      'markerSizeMeter': markerSizeMeter,
+      'node': node.toMap(),
+    };
+    if (lengthInBytes != null && imageName != null) {
+      map['imageLength'] = lengthInBytes;
+      map['imageBytes'] = bytes;
+      paramsSatisfied = true;
+    }
+    if (filePath != null) {
+      map['filePath'] = filePath;
+      paramsSatisfied = true;
+    }
+
+    if (paramsSatisfied) {
+      _channel.invokeMethod<void>('addNurie', map);
+    }
+  }
+
   Map<String, dynamic> _addParentNodeNameToParams(
       Map geometryMap, String parentNodeName) {
     if (parentNodeName?.isNotEmpty ?? false)
