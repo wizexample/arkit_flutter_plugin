@@ -265,20 +265,9 @@ NSMutableDictionary *nurieParams = nil;
         ARImageAnchor *image = (ARImageAnchor*)anchor;
         NSString* imageName = image.referenceImage.name;
         if ([nurieParams.allKeys containsObject:imageName]) {
-            NSLog(@"**** addNurieObject true");
-//            SCNPlane* plane = [SCNPlane planeWithWidth:image.referenceImage.physicalSize.width height:image.referenceImage.physicalSize.height];
-//            plane.firstMaterial.diffuse.contents = UIColor.yellowColor;
-//            plane.firstMaterial.transparency = 0.8;
-//            SCNNode* planeNode = [SCNNode nodeWithGeometry:plane];
-//            planeNode.eulerAngles = SCNVector3Make(- M_PI / 2, 0, 0);
-//            [node addChildNode:planeNode];
-//
-//            NurieParams* nurie = nurieParams[imageName];
-//            [node addChildNode: nurie.node];
             return true;
         }
     }
-    NSLog(@"**** addNurieObject false");
     return false;
 }
 
@@ -288,7 +277,6 @@ NSMutableDictionary *nurieParams = nil;
         NSString* imageName = image.referenceImage.name;
         if ([nurieParams.allKeys containsObject:imageName]) {
             NurieParams* nurie = nurieParams[imageName];
-            NSLog(@"**** checkMarkerNurie true");
             if (!nurie.imageCaptured) {
                 SCNNode* cameraNode = _sceneView.pointOfView;
                 float hw = image.referenceImage.physicalSize.width / 2;
@@ -297,32 +285,9 @@ NSMutableDictionary *nurieParams = nil;
                 SCNVector3 ur = [self getScreenPoint:cameraNode pose:node x:hw z:-hh];
                 SCNVector3 bl = [self getScreenPoint:cameraNode pose:node x:-hw z:hh];
                 SCNVector3 br = [self getScreenPoint:cameraNode pose:node x:hw z:hh];
-                NSLog(@"**** (%f %f), (%f %f), (%f %f), (%f %f)", ul.x, ul.y, ur.x, ur.y, bl.x, bl.y, br.x, br.y);
-                UIImage *uiImage = [_sceneView snapshot];
-                CIImage *ciImage = [CIImage imageWithCGImage:uiImage.CGImage];
-                CIFilter *perspective = [CIFilter filterWithName:@"CIPerspectiveCorrection"];
-                CGFloat scale = UIScreen.mainScreen.scale;
-                CGFloat height = uiImage.size.height;
-                [perspective setValue:[CIVector vectorWithX:ul.x * scale Y:height - ul.y * scale] forKey:@"inputTopLeft"];
-                [perspective setValue:[CIVector vectorWithX:ur.x * scale Y:height - ur.y * scale] forKey:@"inputTopRight"];
-                [perspective setValue:[CIVector vectorWithX:bl.x * scale Y:height - bl.y * scale] forKey:@"inputBottomLeft"];
-                [perspective setValue:[CIVector vectorWithX:br.x * scale Y:height - br.y * scale] forKey:@"inputBottomRight"];
-                [perspective setValue:ciImage forKey:kCIInputImageKey];
-                ciImage = perspective.outputImage;
-                CIContext *context = [CIContext contextWithOptions:nil];
-                struct CGImage *cgImage = [context createCGImage:ciImage fromRect:ciImage.extent];
-                UIImage *u2 = [UIImage imageWithCGImage:cgImage];
                 
-                for (SCNNode* childNode in nurie.node.childNodes){
-                    for (SCNMaterial* mat in childNode.geometry.materials) {
-                        [mat.diffuse setContents: u2];
-                    }
-                    for (SCNNode* gcNode in childNode.childNodes){
-                        for (SCNMaterial* mat in gcNode.geometry.materials) {
-                            [mat.diffuse setContents: u2];
-                        }
-                    }
-                }
+                UIImage *uiImage = [self affine:[_sceneView snapshot] ul:ul ur:ur bl:bl br:br];
+                [self setTexture:nurie.node texture:uiImage];
                 
                 SCNPlane* plane = [SCNPlane planeWithWidth:image.referenceImage.physicalSize.width height:image.referenceImage.physicalSize.height];
                 plane.firstMaterial.diffuse.contents = UIColor.yellowColor;
@@ -334,23 +299,42 @@ NSMutableDictionary *nurieParams = nil;
                 NurieParams* nurie = nurieParams[imageName];
                 [node addChildNode: nurie.node];
 
-//                UIImageWriteToSavedPhotosAlbum(uiImage, self, @selector(onCaptureImageSaved:didFinishSavingWithError:contextInfo:), nil);
                 nurie.imageCaptured = true;
             }
             return true;
         }
     }
-    NSLog(@"**** checkMarkerNurie false");
     return false;
 }
 
-
+- (void) setTexture:(SCNNode*)node texture:(UIImage*)texture {
+    for (SCNNode* childNode in node.childNodes){
+        for (SCNMaterial* mat in childNode.geometry.materials) {
+            [mat.diffuse setContents: texture];
+        }
+        [self setTexture:childNode texture:texture];
+    }
+}
 
 - (SCNVector3) getScreenPoint:(SCNNode*) camera pose:(SCNNode*)pose x:(float)x z:(float)z {
     SCNVector3 t = SCNVector3Make(x, 0, z);
     SCNVector3 t1 = [pose convertPosition:t toNode:camera];
     SCNVector3 t2 = [camera convertPosition:t1 toNode:nil];
     return [_sceneView projectPoint: t2];
+}
+
+- (UIImage*) affine:(UIImage*)input ul:(SCNVector3)ul ur:(SCNVector3)ur bl:(SCNVector3)bl br:(SCNVector3)br {
+    CIImage *ciImage = [CIImage imageWithCGImage:input.CGImage];
+    CIFilter *perspective = [CIFilter filterWithName:@"CIPerspectiveCorrection"];
+    CGFloat scale = UIScreen.mainScreen.scale;
+    CGFloat height = input.size.height;
+    [perspective setValue:[CIVector vectorWithX:ul.x * scale Y:height - ul.y * scale] forKey:@"inputTopLeft"];
+    [perspective setValue:[CIVector vectorWithX:ur.x * scale Y:height - ur.y * scale] forKey:@"inputTopRight"];
+    [perspective setValue:[CIVector vectorWithX:bl.x * scale Y:height - bl.y * scale] forKey:@"inputBottomLeft"];
+    [perspective setValue:[CIVector vectorWithX:br.x * scale Y:height - br.y * scale] forKey:@"inputBottomRight"];
+    [perspective setValue:ciImage forKey:kCIInputImageKey];
+    ciImage = perspective.outputImage;
+    return [UIImage imageWithCGImage:[[CIContext contextWithOptions:nil] createCGImage:ciImage fromRect:ciImage.extent]];
 }
 
 - (void)startWorldTrackingSessionWithImage:(FlutterMethodCall*)call result:(FlutterResult)result {
@@ -725,21 +709,8 @@ NSMutableDictionary *nurieParams = nil;
         NSURL* referenceURL = [[NSURL alloc] initFileURLWithPath: localPath];
         node = [SCNNode node];
         SCNScene *scene = [SCNScene sceneWithURL: referenceURL options: nil error: nil];
-
-//        NSURL* testUrl = [[NSURL alloc] initFileURLWithPath: dict[@"testpath"]];
-//        NSLog(@"testUrl %@ / %@", dict[@"testpath"], testUrl);
-//        UIImage* img = [UIImage imageWithContentsOfFile:dict[@"testpath"]];
-
         for (SCNNode* childNode in scene.rootNode.childNodes){
             [node addChildNode:childNode];
-//            for (SCNMaterial* mat in childNode.geometry.materials) {
-//                [mat.diffuse setContents: img];
-//            }
-//            for (SCNNode* gcNode in childNode.childNodes){
-//                for (SCNMaterial* mat in gcNode.geometry.materials) {
-//                    [mat.diffuse setContents: img];
-//                }
-//            }
         }
     } else if([dict[@"dartType"] isEqualToString:@"ARKitObjectNode"]){
         node = [SCNNode nodeWithGeometry:geometry];
