@@ -267,6 +267,18 @@ class ARKitController {
     _channel.invokeMethod<bool>('screenCapture');
   }
 
+  Future<bool> toggleScreenRecord() {
+    return _channel.invokeMethod<bool>('toggleScreenRecord');
+  }
+
+  void startScreenRecord() {
+    _channel.invokeMethod<void>('startScreenRecord');
+  }
+
+  void stopScreenRecord() {
+    _channel.invokeMethod<void>('stopScreenRecord');
+  }
+
   void addNurie(
     String imageName,
     double markerSizeMeter,
@@ -294,6 +306,23 @@ class ARKitController {
     if (paramsSatisfied) {
       _channel.invokeMethod<void>('addNurie', map);
     }
+  }
+
+  void findNurieMarker(bool isStart) {
+    _channel.invokeMethod<void>('findNurieMarker', {'isStart': isStart});
+  }
+
+  void applyNurieTexture(String nodeName, String nurie) {
+    _channel.invokeMethod<void>(
+        'applyNurieTexture', {'nurie': nurie, 'nodeName': nodeName});
+  }
+
+  // need to call in onPlaneTap
+  void addTransformableNode(String transformName, ARKitNode node) {
+    Map map = node.toMap();
+    map["parentNodeName"] = transformName;
+    _channel.invokeMethod<void>(
+        'addTransformableNode', {'transformName': transformName, 'node': map});
   }
 
   Map<String, dynamic> _addParentNodeNameToParams(

@@ -25,10 +25,9 @@ API_AVAILABLE(ios(11.3))
 
 @interface NurieParams: NSObject
 
-- (nonnull id) initWithName:(nonnull NSString*)name node:(nonnull SCNNode*)node;
+- (nonnull id) initWithName:(nonnull NSString*)name;
 
 @property (readonly) NSString* _Nonnull name;
-@property (readonly) SCNNode* _Nonnull node;
-@property BOOL imageCaptured;
+@property UIImage* _Nullable image;
 
 @end

@@ -6,6 +6,7 @@
 #import "DecodableUtils.h"
 #import <SceneKit/ModelIO.h>
 #import "ArkitPlugin.h"
+#import <ReplayKit/ReplayKit.h>
 
 @interface FlutterArkitFactory()
 @property NSObject<FlutterBinaryMessenger>* messenger;
@@ -49,25 +50,38 @@
 
 @implementation FlutterArkitController
 
+static NSMutableSet *g_mSet = NULL;
+SCNNode* objectsParent;
+
+NSMutableDictionary *nurieParams = nil;
+BOOL nurieFindingMode = false;
+NSMutableArray *prevMarkerCorners;
+int counterMarkerCorners = 0;
+const int checkMarkerCorners = 6;
+
+
 - (instancetype)initWithWithFrame:(CGRect)frame
                    viewIdentifier:(int64_t)viewId
                         arguments:(id _Nullable)args
                   binaryMessenger:(NSObject<FlutterBinaryMessenger>*)messenger {
-  if ([super init]) {
-    _viewId = viewId;
-    _sceneView = [[ARSCNView alloc] initWithFrame:frame];
+    if ([super init]) {
+        _viewId = viewId;
+        _sceneView = [[ARSCNView alloc] initWithFrame:frame];
 
-    NSString* channelName = [NSString stringWithFormat:@"arkit", viewId];
-    NSLog(@"####### channelName=%@", channelName);
-    _channel = [FlutterMethodChannel methodChannelWithName:channelName binaryMessenger:messenger];
-    __weak __typeof__(self) weakSelf = self;
-    [_channel setMethodCallHandler:^(FlutterMethodCall* call, FlutterResult result) {
-      [weakSelf onMethodCall:call result:result];
-    }];
-    self.delegate = [[SceneViewDelegate alloc] initWithChannel: _channel controller:self];
-    _sceneView.delegate = self.delegate;
-  }
-  return self;
+        NSString* channelName = [NSString stringWithFormat:@"arkit", viewId];
+        NSLog(@"####### channelName=%@", channelName);
+        _channel = [FlutterMethodChannel methodChannelWithName:channelName binaryMessenger:messenger];
+        __weak __typeof__(self) weakSelf = self;
+        [_channel setMethodCallHandler:^(FlutterMethodCall* call, FlutterResult result) {
+            [weakSelf onMethodCall:call result:result];
+        }];
+        self.delegate = [[SceneViewDelegate alloc] initWithChannel: _channel controller:self];
+        _sceneView.delegate = self.delegate;
+
+        objectsParent = [[SCNNode alloc] init];
+        [_sceneView.scene.rootNode addChildNode:objectsParent];
+    }
+    return self;
 }
 
 - (UIView*)view {
@@ -122,12 +136,25 @@
     [self startWorldTrackingSessionWithImage:call result:result];
   } else if ([call.method isEqualToString:@"screenCapture"]) {
       [self screenCapture: call andResult: result];
+  } else if ([call.method isEqualToString:@"toggleScreenRecord"]) {
+      [self toggleScreenRecord: call andResult: result];
+  } else if ([call.method isEqualToString:@"startScreenRecord"]) {
+      [self startScreenRecord: call andResult: result];
+  } else if ([call.method isEqualToString:@"stopScreenRecord"]) {
+      [self stopScreenRecord: call andResult: result];
   } else if ([call.method isEqualToString:@"addNurie"]) {
       [self addNurie: call result: result];
+  } else if ([call.method isEqualToString:@"findNurieMarker"]) {
+      [self findNurieMarker: call result: result];
+  } else if ([call.method isEqualToString:@"applyNurieTexture"]) {
+      [self applyNurieTexture: call result: result];
+  } else if ([call.method isEqualToString:@"addTransformableNode"]) {
+//      [self addTransformableNode: call result: result];
   } else {
     result(FlutterMethodNotImplemented);
   }
 }
+
 
 // - (void)init:(FlutterMethodCall*)call result:(FlutterResult)result {
 //     NSNumber* showStatistics = call.arguments[@"showStatistics"];
@@ -164,12 +191,6 @@
 //     [self.sceneView.session runWithConfiguration:[self configuration]];
 //     result(nil);
 // }
-
-///
-/// Dynamic loading ARKitImageAnchor
-///
-static NSMutableSet *g_mSet = NULL;
-NSMutableDictionary *nurieParams = nil;
 
 - (void)initStartWorldTrackingSessionWithImage:(FlutterMethodCall*)call result:(FlutterResult)result {
     NSNumber* showStatistics = call.arguments[@"showStatistics"];
@@ -247,8 +268,7 @@ NSMutableDictionary *nurieParams = nil;
     NSNumber* markerSizeMeterNSNumber = call.arguments[@"markerSizeMeter"];
     double markerSizeMeter = [markerSizeMeterNSNumber doubleValue];
     
-    SCNNode* node = [self getNodeWithGeometry:nil fromDict:call.arguments[@"node"]];
-    nurieParams[imageName] = [[NurieParams alloc] initWithName:imageName node:node];
+    nurieParams[imageName] = [[NurieParams alloc] initWithName:imageName];
 
     CGImageRef cgImage = [uiimage CGImage];
     
@@ -260,67 +280,9 @@ NSMutableDictionary *nurieParams = nil;
     result(nil);
 }
 
-- (BOOL)addNurieObject:(ARAnchor *)anchor node:(SCNNode *)node {
-    if ([anchor isMemberOfClass:[ARImageAnchor class]]) {
-        ARImageAnchor *image = (ARImageAnchor*)anchor;
-        NSString* imageName = image.referenceImage.name;
-        if ([nurieParams.allKeys containsObject:imageName]) {
-            return true;
-        }
-    }
-    return false;
-}
-
-- (BOOL)checkMarkerNurie:(ARAnchor*) anchor node:(SCNNode *)node {
-    if ([anchor isMemberOfClass:[ARImageAnchor class]]) {
-        ARImageAnchor *image = (ARImageAnchor*)anchor;
-        NSString* imageName = image.referenceImage.name;
-        if ([nurieParams.allKeys containsObject:imageName]) {
-            NurieParams* nurie = nurieParams[imageName];
-            if (!nurie.imageCaptured) {
-                SCNNode* cameraNode = _sceneView.pointOfView;
-                float hw = image.referenceImage.physicalSize.width / 2;
-                float hh = image.referenceImage.physicalSize.height / 2;
-                SCNVector3 ul = [self getScreenPoint:cameraNode pose:node x:-hw z:-hh];
-                SCNVector3 ur = [self getScreenPoint:cameraNode pose:node x:hw z:-hh];
-                SCNVector3 bl = [self getScreenPoint:cameraNode pose:node x:-hw z:hh];
-                SCNVector3 br = [self getScreenPoint:cameraNode pose:node x:hw z:hh];
-                
-                UIImage *uiImage = [self affine:[_sceneView snapshot] ul:ul ur:ur bl:bl br:br];
-                [self setTexture:nurie.node texture:uiImage];
-                
-                SCNPlane* plane = [SCNPlane planeWithWidth:image.referenceImage.physicalSize.width height:image.referenceImage.physicalSize.height];
-                plane.firstMaterial.diffuse.contents = UIColor.yellowColor;
-                plane.firstMaterial.transparency = 0.8;
-                SCNNode* planeNode = [SCNNode nodeWithGeometry:plane];
-                planeNode.eulerAngles = SCNVector3Make(- M_PI / 2, 0, 0);
-                [node addChildNode:planeNode];
-                
-                NurieParams* nurie = nurieParams[imageName];
-                [node addChildNode: nurie.node];
-
-                nurie.imageCaptured = true;
-            }
-            return true;
-        }
-    }
-    return false;
-}
-
-- (void) setTexture:(SCNNode*)node texture:(UIImage*)texture {
-    for (SCNNode* childNode in node.childNodes){
-        for (SCNMaterial* mat in childNode.geometry.materials) {
-            [mat.diffuse setContents: texture];
-        }
-        [self setTexture:childNode texture:texture];
-    }
-}
-
 - (SCNVector3) getScreenPoint:(SCNNode*) camera pose:(SCNNode*)pose x:(float)x z:(float)z {
     SCNVector3 t = SCNVector3Make(x, 0, z);
-    SCNVector3 t1 = [pose convertPosition:t toNode:camera];
-    SCNVector3 t2 = [camera convertPosition:t1 toNode:nil];
-    return [_sceneView projectPoint: t2];
+    return [_sceneView projectPoint: [pose convertPosition:t toNode:nil]];
 }
 
 - (UIImage*) affine:(UIImage*)input ul:(SCNVector3)ul ur:(SCNVector3)ur bl:(SCNVector3)bl br:(SCNVector3)br {
@@ -399,7 +361,7 @@ NSMutableDictionary *nurieParams = nil;
 
 - (void)onRemoveNode:(FlutterMethodCall*)call result:(FlutterResult)result {
     NSString* nodeName = call.arguments[@"nodeName"];
-    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:nodeName recursively:YES];
+    SCNNode* node = [objectsParent childNodeWithName:nodeName recursively:YES];
     [node removeFromParentNode];
     result(nil);
 }
@@ -503,35 +465,35 @@ NSMutableDictionary *nurieParams = nil;
 #pragma mark - Parameters
 - (void) updatePosition:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
+    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
     node.position = [DecodableUtils parseVector3:call.arguments];
     result(nil);
 }
 
 - (void) updateRotation:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
+    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
     node.rotation = [DecodableUtils parseVector4:call.arguments];
     result(nil);
 }
 
 - (void) updateEulerAngles:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
+    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
     node.eulerAngles = [DecodableUtils parseVector3:call.arguments];
     result(nil);
 }
 
 - (void) updateScale:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
+    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
     node.scale = [DecodableUtils parseVector3:call.arguments];
     result(nil);
 }
 
 - (void) updateIsHidden:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
+    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
 
     if ([call.arguments[@"isHidden"] boolValue]) {
         node.hidden = YES;
@@ -546,7 +508,7 @@ NSMutableDictionary *nurieParams = nil;
 
 - (void) updateIsPlay:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
+    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
 
     NSLog(@"###### node.geometry.contents=%@", node.geometry.firstMaterial.diffuse.contents );
     if([node.geometry.firstMaterial.diffuse.contents isMemberOfClass:[SKScene class]]){
@@ -573,7 +535,7 @@ NSMutableDictionary *nurieParams = nil;
 
 - (void) updateSingleProperty:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
+    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
     
     NSString* keyProperty = call.arguments[@"keyProperty"];
     id object = [node valueForKey:keyProperty];
@@ -584,7 +546,7 @@ NSMutableDictionary *nurieParams = nil;
 
 - (void) updateMaterials:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:name recursively:YES];
+    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
     SCNGeometry* geometry = [GeometryBuilder createGeometry:call.arguments withDevice: _sceneView.device];
     node.geometry = geometry;
     result(nil);
@@ -638,7 +600,7 @@ NSMutableDictionary *nurieParams = nil;
     NSString* sceneName = call.arguments[@"sceneName"];
     NSString* animationIdentifier = call.arguments[@"animationIdentifier"];
     NSString* nodeName = call.arguments[@"nodeName"];
-    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:nodeName recursively:YES];
+    SCNNode* node = [objectsParent childNodeWithName:nodeName recursively:YES];
     float repeatCount = [call.arguments[@"repeatCount"] floatValue];
     if (repeatCount < 0) {
         repeatCount = HUGE_VALF;
@@ -661,7 +623,7 @@ NSMutableDictionary *nurieParams = nil;
 - (void) onStopAnimation:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* key = call.arguments[@"key"];
     NSString* nodeName = call.arguments[@"nodeName"];
-    SCNNode* node = [self.sceneView.scene.rootNode childNodeWithName:nodeName recursively:YES];
+    SCNNode* node = [objectsParent childNodeWithName:nodeName recursively:YES];
     [node removeAnimationForKey:key blendOutDuration:0.5];
     result(nil);
 }
@@ -672,12 +634,150 @@ NSMutableDictionary *nurieParams = nil;
     UIImageWriteToSavedPhotosAlbum(image, self, @selector(onCaptureImageSaved:didFinishSavingWithError:contextInfo:), nil);
 }
 
+- (void) toggleScreenRecord:(FlutterMethodCall*)call andResult:(FlutterResult)result {
+    if (![[RPScreenRecorder sharedRecorder] isRecording]) {
+        NSLog(@"toggleScreenRecord start");
+        [[RPScreenRecorder sharedRecorder] startRecordingWithMicrophoneEnabled:NO handler:^(NSError * _Nullable error) {
+            if (error) {
+                NSLog(@"failed to start recording, %@", [error localizedDescription]);
+            }
+        }];
+    } else {
+        NSLog(@"toggleScreenRecord stop");
+        [[RPScreenRecorder sharedRecorder] stopRecordingWithHandler:^(RPPreviewViewController * _Nullable previewViewController, NSError * _Nullable error) {
+            if (error) {
+                NSLog(@"failed to stop recording, %@", [error localizedDescription]);
+            }
+        }];
+    }
+}
+
+- (void)startScreenRecord:(FlutterMethodCall*)call andResult:(FlutterResult)result {
+    if (![[RPScreenRecorder sharedRecorder] isRecording]) {
+        NSLog(@"startScreenRecord");
+        [[RPScreenRecorder sharedRecorder] startRecordingWithMicrophoneEnabled:NO handler:^(NSError * _Nullable error) {
+            if (error) {
+                NSLog(@"failed to start recording, %@", [error localizedDescription]);
+            }
+        }];
+    }
+}
+
+- (void)stopScreenRecord:(FlutterMethodCall*)call andResult:(FlutterResult)result {
+    if ([[RPScreenRecorder sharedRecorder] isRecording]) {
+        NSLog(@"stopScreenRecord");
+        [[RPScreenRecorder sharedRecorder] stopRecordingWithHandler:^(RPPreviewViewController * _Nullable previewViewController, NSError * _Nullable error) {
+            if (error) {
+                NSLog(@"failed to stop recording, %@", [error localizedDescription]);
+            }
+        }];
+    }
+}
+
 - (void) onCaptureImageSaved: (UIImage*)image didFinishSavingWithError:(NSError *)error contextInfo:(void *)contextInfo {
     if (error) {
         NSLog(@"capture image save failure %@", error);
     } else {
         NSLog(@"capture image saved");
     }
+}
+
+
+- (BOOL)addNurieObject:(ARAnchor *)anchor node:(SCNNode *)node {
+    if ([anchor isMemberOfClass:[ARImageAnchor class]]) {
+        ARImageAnchor *image = (ARImageAnchor*)anchor;
+        NSString* imageName = image.referenceImage.name;
+        if ([nurieParams.allKeys containsObject:imageName]) {
+            return true;
+        }
+    }
+    return false;
+}
+
+- (BOOL)checkMarkerNurie:(ARAnchor*) anchor node:(SCNNode *)node {
+    if (nurieFindingMode && [anchor isMemberOfClass:[ARImageAnchor class]]) {
+        ARImageAnchor *image = (ARImageAnchor*)anchor;
+        NSString* imageName = image.referenceImage.name;
+        if ([nurieParams.allKeys containsObject:imageName]) {
+            NurieParams* nurie = nurieParams[imageName];
+            SCNNode* cameraNode = _sceneView.pointOfView;
+            float hw = image.referenceImage.physicalSize.width / 2;
+            float hh = image.referenceImage.physicalSize.height / 2;
+            SCNVector3 ul = [self getScreenPoint:cameraNode pose:node x:-hw z:-hh];
+            SCNVector3 ur = [self getScreenPoint:cameraNode pose:node x:hw z:-hh];
+            SCNVector3 bl = [self getScreenPoint:cameraNode pose:node x:-hw z:hh];
+            SCNVector3 br = [self getScreenPoint:cameraNode pose:node x:hw z:hh];
+
+            if ([self validMarkerCorners:_sceneView.bounds.size.width height:_sceneView.bounds.size.height corners:{ul, ur, bl, br}]) {
+                UIImage *uiImage = [self affine:[_sceneView snapshot] ul:ul ur:ur bl:bl br:br];
+                nurie.image = uiImage;
+                [self startFindingNurieMarker:false];
+                NSLog(@"**** captured");
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+- (BOOL) validMarkerCorners:(int)width height:(int)height corners:(SCNVector3[])corners {
+    BOOL succeed = true;
+    for(int i = 0; i < 4; i++) {
+        SCNVector3 corner = corners[i];
+        SCNVector3 prevCorner = prevMarkerCorners[i];
+        if (1) {
+            succeed = false;
+            counterMarkerCorners = -1;
+        }
+    
+        prevMarkerCorners[i] = corner;
+    }
+    if (++ counterMarkerCorners >= checkMarkerCorners) {
+        counterMarkerCorners = 0;
+        return true;
+    }
+    return false;
+}
+
+- (void) applyNurieTexture:(FlutterMethodCall*)call result:(FlutterResult)result {
+    NSString* nurieStr = call.arguments[@"nurie"];
+    NSString* nodeName = call.arguments[@"nodeName"];
+    if (nurieStr != nil) {
+        NurieParams* nurieParam = nurieParams[nurieStr];
+        SCNNode* node = [objectsParent childNodeWithName:nodeName recursively:YES];
+        if (nurieParam != nil && nurieParam.image != nil && node != nil) {
+            UIImage* texture = nurieParam.image;
+            [self setTexture:node texture:texture];
+        }
+    }
+    result(nil);
+}
+
+- (void) setTexture:(SCNNode*)node texture:(UIImage*)texture {
+    for (SCNNode* childNode in node.childNodes){
+        for (SCNMaterial* mat in childNode.geometry.materials) {
+            [mat.diffuse setContents: texture];
+        }
+        [self setTexture:childNode texture:texture];
+    }
+}
+
+- (void) findNurieMarker:(FlutterMethodCall*)call result:(FlutterResult)result {
+    BOOL isStart = call.arguments[@"isStart"];
+    [self startFindingNurieMarker:isStart];
+    result(nil);
+}
+
+- (void) startFindingNurieMarker:(BOOL)isStart {
+    nurieFindingMode = isStart;
+    NSMutableArray<NSDictionary*>* results = [NSMutableArray arrayWithCapacity:1];
+    [results addObject:@{@"isStart" : @(isStart)}];
+    [_channel invokeMethod: @"startFindingNurieMarker" arguments: results];
+    [objectsParent setHidden:isStart];
+}
+
+- (void) addTransformableNode:(FlutterMethodCall*)call result:(FlutterResult)result {
+    
 }
 
 #pragma mark - Utils
@@ -866,10 +966,10 @@ NSMutableDictionary *nurieParams = nil;
 - (void) addNodeToSceneWithGeometry:(SCNGeometry*)geometry andCall: (FlutterMethodCall*)call andResult:(FlutterResult)result{
     SCNNode* node = [self getNodeWithGeometry:geometry fromDict:call.arguments];
     if (call.arguments[@"parentNodeName"] != nil) {
-        SCNNode *parentNode = [self.sceneView.scene.rootNode childNodeWithName:call.arguments[@"parentNodeName"] recursively:YES];
+        SCNNode *parentNode = [objectsParent childNodeWithName:call.arguments[@"parentNodeName"] recursively:YES];
         [parentNode addChildNode:node];
     } else {
-        [self.sceneView.scene.rootNode addChildNode:node];
+        [objectsParent addChildNode:node];
     }
     result(nil);
 }
@@ -921,11 +1021,9 @@ NSMutableDictionary *nurieParams = nil;
 
 @implementation NurieParams
 
-- (id) initWithName:(NSString *)name node:(SCNNode *)node {
+- (id) initWithName:(NSString *)name {
     if (self = [super init]) {
         _name = name;
-        _node = node;
-        _imageCaptured = false;
     }
     return self;
 }
