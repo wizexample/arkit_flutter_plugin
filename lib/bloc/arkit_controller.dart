@@ -161,7 +161,7 @@ class ARKitController {
   VoidCallback onSessionInterruptionEnded;
 
   StringResultHandler onNodeTap;
-  ARKitHitResultHandler onARTap;
+  ARKitHitResultHandler onPlaneTap;
   ARKitPinchGestureHandler onNodePinch;
   ARKitPanResultHandler onNodePan;
 
@@ -345,15 +345,15 @@ class ARKitController {
           onNodeTap(call.arguments);
         }
         break;
-      case 'onARTap':
-        if (onARTap != null) {
+      case 'onPlaneTap':
+        if (onPlaneTap != null) {
           final List<dynamic> input = call.arguments;
           final objects = input
               .cast<Map<dynamic, dynamic>>()
               .map<ARKitTestResult>(
                   (Map<dynamic, dynamic> r) => ARKitTestResult.fromMap(r))
               .toList();
-          onARTap(objects);
+          onPlaneTap(objects);
         }
         break;
       case 'onNodePinch':

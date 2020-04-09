@@ -50,6 +50,8 @@
 
 @implementation FlutterArkitController
 
+static const NSString* REFERENCE_CHILD_NODE = @"REFERENCE_CHILD_NODE";
+
 static NSMutableSet *g_mSet = NULL;
 SCNNode* objectsParent;
 
@@ -392,6 +394,8 @@ int viewHeight;
 #pragma mark - Scene tap event
 - (void) handleTapFrom: (UITapGestureRecognizer *)recognizer
 {
+//    [self debugNodeTree:nil level:0];
+    
     if (![recognizer.view isKindOfClass:[ARSCNView class]])
         return;
     
@@ -401,8 +405,9 @@ int viewHeight;
         : [recognizer locationInView:sceneView];
     NSArray<SCNHitTestResult *> * hitResults = [sceneView hitTest:touchLocation options:@{}];
     if ([hitResults count] != 0) {
-        SCNNode *node = hitResults[0].node;
+        SCNNode *node = [self getParentIfReferenceChild: hitResults[0].node];
         [_channel invokeMethod: @"onNodeTap" arguments: node.name];
+        return; // consume event here
     }
 
     NSArray<ARHitTestResult *> *arHitResults = [sceneView hitTest:touchLocation types:ARHitTestResultTypeFeaturePoint
@@ -415,9 +420,11 @@ int viewHeight;
     if ([arHitResults count] != 0) {
         NSMutableArray<NSDictionary*>* results = [NSMutableArray arrayWithCapacity:[arHitResults count]];
         for (ARHitTestResult* r in arHitResults) {
-            [results addObject:[self getDictFromHitResult:r]];
+            if (r.type != ARHitTestResultTypeFeaturePoint) {
+                [results addObject:[self getDictFromHitResult:r]];
+            }
         }
-        [_channel invokeMethod: @"onARTap" arguments: results];
+        [_channel invokeMethod: @"onPlaneTap" arguments: results];
     }
 }
 
@@ -819,6 +826,7 @@ int viewHeight;
         node = [SCNNode node];
         SCNScene *scene = [SCNScene sceneWithURL: referenceURL options: nil error: nil];
         for (SCNNode* childNode in scene.rootNode.childNodes){
+            childNode.name = REFERENCE_CHILD_NODE;
             [node addChildNode:childNode];
         }
     } else if([dict[@"dartType"] isEqualToString:@"ARKitObjectNode"]){
@@ -1007,22 +1015,21 @@ int viewHeight;
     return dict;
 }
 
-- (void) test:(NSString*) dir {
-    NSLog(@"start %@", dir);
-
-    NSFileManager *fileManager = [[NSFileManager alloc] init];
-     // ファイル一覧の場所であるpathを文字列で取得
-    NSString *path = [[NSBundle mainBundle] bundlePath];
-    NSError *error;
-     
-    // pathにあるファイル名文字列で全て取得
-    NSArray *files = [fileManager contentsOfDirectoryAtPath:[NSString stringWithFormat:@"%@/%@", path, dir] error:&error];
-     
-    if (!error) {
-        NSLog(@"%@",files);
+- (nullable SCNNode*) getParentIfReferenceChild:(SCNNode*) node {
+    SCNNode* ret = node;
+    if (ret.name == REFERENCE_CHILD_NODE) {
+        ret = [self getParentIfReferenceChild:ret.parentNode];
     }
-    for(int i = 0; i < files.count; i ++) {
-        [self test: [NSString stringWithFormat:@"%@/%@", dir, files[i]]];
+    return ret;
+}
+
+- (void) debugNodeTree:(nullable SCNNode*)node level:(int)level{
+    if (node == nil) node = _sceneView.scene.rootNode;
+    for(SCNNode* child in node.childNodes) {
+        NSString* name = node.name;
+        if (name == nil) name = @"null";
+        NSLog(@"**** [%d] %@ - %@ ", level, name, node.class);
+        [self debugNodeTree:child level:level + 1];
     }
 }
 
