@@ -164,6 +164,7 @@ class ARKitController {
   ARKitHitResultHandler onPlaneTap;
   ARKitPinchGestureHandler onNodePinch;
   ARKitPanResultHandler onNodePan;
+  Function(bool) onNurieMarkerModeChanged;
 
   /// Called when a new node has been mapped to the given anchor.
   AnchorEventHandler onAddNodeForAnchor;
@@ -388,6 +389,11 @@ class ARKitController {
         if (onUpdateNodeForAnchor != null) {
           final anchor = _buildAnchor(call.arguments);
           onUpdateNodeForAnchor(anchor);
+        }
+        break;
+      case 'startFindingNurieMarker':
+        if (onNurieMarkerModeChanged != null) {
+          onNurieMarkerModeChanged(call.arguments['isStart']);
         }
         break;
       default:

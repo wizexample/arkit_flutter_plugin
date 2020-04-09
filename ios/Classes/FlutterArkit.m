@@ -785,11 +785,12 @@ int viewHeight;
 }
 
 - (void) startFindingNurieMarker:(BOOL)isStart {
-    nurieFindingMode = isStart;
-    NSMutableArray<NSDictionary*>* results = [NSMutableArray arrayWithCapacity:1];
-    [results addObject:@{@"isStart" : @(isStart)}];
-    [_channel invokeMethod: @"startFindingNurieMarker" arguments: results];
-    [objectsParent setHidden:isStart];
+    if (nurieFindingMode != isStart) {
+        nurieFindingMode = isStart;
+        NSDictionary* results = @{@"isStart" : @(isStart)};
+        [_channel invokeMethod: @"startFindingNurieMarker" arguments: results];
+        [objectsParent setHidden:isStart];
+    }
 }
 
 - (void) addTransformableNode:(FlutterMethodCall*)call result:(FlutterResult)result {
