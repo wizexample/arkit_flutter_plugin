@@ -55,9 +55,12 @@ SCNNode* objectsParent;
 
 NSMutableDictionary *nurieParams = nil;
 BOOL nurieFindingMode = false;
-NSMutableArray *prevMarkerCorners;
+float prevMarkerCorners[] = {0,0,0,0,0,0,0,0};
 int counterMarkerCorners = 0;
-const int checkMarkerCorners = 6;
+const int checkMarkerCorners = 8;
+const int thresholdMarkerCorners = 5;
+int viewWidth;
+int viewHeight;
 
 
 - (instancetype)initWithWithFrame:(CGRect)frame
@@ -193,6 +196,8 @@ const int checkMarkerCorners = 6;
 // }
 
 - (void)initStartWorldTrackingSessionWithImage:(FlutterMethodCall*)call result:(FlutterResult)result {
+    viewWidth = _sceneView.bounds.size.width;
+    viewHeight = _sceneView.bounds.size.height;
     NSNumber* showStatistics = call.arguments[@"showStatistics"];
     self.sceneView.showsStatistics = [showStatistics boolValue];
   
@@ -707,8 +712,9 @@ const int checkMarkerCorners = 6;
             SCNVector3 ur = [self getScreenPoint:cameraNode pose:node x:hw z:-hh];
             SCNVector3 bl = [self getScreenPoint:cameraNode pose:node x:-hw z:hh];
             SCNVector3 br = [self getScreenPoint:cameraNode pose:node x:hw z:hh];
+            SCNVector3 arr[] = {ul, ur, bl, br};
 
-            if ([self validMarkerCorners:_sceneView.bounds.size.width height:_sceneView.bounds.size.height corners:{ul, ur, bl, br}]) {
+            if ([self validMarkerCorners:viewWidth height:viewHeight corners:arr]) {
                 UIImage *uiImage = [self affine:[_sceneView snapshot] ul:ul ur:ur bl:bl br:br];
                 nurie.image = uiImage;
                 [self startFindingNurieMarker:false];
@@ -724,13 +730,16 @@ const int checkMarkerCorners = 6;
     BOOL succeed = true;
     for(int i = 0; i < 4; i++) {
         SCNVector3 corner = corners[i];
-        SCNVector3 prevCorner = prevMarkerCorners[i];
-        if (1) {
+        float prevX = prevMarkerCorners[i * 2];
+        float prevY = prevMarkerCorners[i * 2 + 1];
+        if (succeed && corner.x < 0 || corner.x > width || corner.y < 0 || corner.y > height ||
+            abs(corner.x - prevX) > thresholdMarkerCorners || abs(corner.y - prevY) > thresholdMarkerCorners) {
             succeed = false;
             counterMarkerCorners = -1;
         }
     
-        prevMarkerCorners[i] = corner;
+        prevMarkerCorners[i * 2] = corner.x;
+        prevMarkerCorners[i * 2 + 1] = corner.y;
     }
     if (++ counterMarkerCorners >= checkMarkerCorners) {
         counterMarkerCorners = 0;
@@ -754,10 +763,10 @@ const int checkMarkerCorners = 6;
 }
 
 - (void) setTexture:(SCNNode*)node texture:(UIImage*)texture {
+    for (SCNMaterial* mat in node.geometry.materials) {
+        [mat.diffuse setContents: texture];
+    }
     for (SCNNode* childNode in node.childNodes){
-        for (SCNMaterial* mat in childNode.geometry.materials) {
-            [mat.diffuse setContents: texture];
-        }
         [self setTexture:childNode texture:texture];
     }
 }

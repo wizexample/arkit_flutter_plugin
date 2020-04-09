@@ -281,8 +281,7 @@ class ARKitController {
 
   void addNurie(
     String imageName,
-    double markerSizeMeter,
-    ARKitNode node, {
+    double markerSizeMeter, {
     int lengthInBytes,
     Uint8List bytes,
     String filePath,
@@ -291,7 +290,6 @@ class ARKitController {
     Map map = {
       'imageName': imageName,
       'markerSizeMeter': markerSizeMeter,
-      'node': node.toMap(),
     };
     if (lengthInBytes != null && imageName != null) {
       map['imageLength'] = lengthInBytes;
