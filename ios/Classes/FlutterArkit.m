@@ -788,7 +788,7 @@ int viewHeight;
     if (nurieFindingMode != isStart) {
         nurieFindingMode = isStart;
         NSDictionary* results = @{@"isStart" : @(isStart)};
-        [_channel invokeMethod: @"startFindingNurieMarker" arguments: results];
+        [_channel invokeMethod: @"nurieMarkerModeChanged" arguments: results];
         [objectsParent setHidden:isStart];
     }
 }

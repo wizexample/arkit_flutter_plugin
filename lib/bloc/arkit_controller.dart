@@ -391,7 +391,7 @@ class ARKitController {
           onUpdateNodeForAnchor(anchor);
         }
         break;
-      case 'startFindingNurieMarker':
+      case 'nurieMarkerModeChanged':
         if (onNurieMarkerModeChanged != null) {
           onNurieMarkerModeChanged(call.arguments['isStart']);
         }
