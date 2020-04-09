@@ -394,7 +394,7 @@ int viewHeight;
 #pragma mark - Scene tap event
 - (void) handleTapFrom: (UITapGestureRecognizer *)recognizer
 {
-//    [self debugNodeTree:nil level:0];
+    [self debugNodeTree:nil level:0];
     
     if (![recognizer.view isKindOfClass:[ARSCNView class]])
         return;
@@ -405,14 +405,19 @@ int viewHeight;
         : [recognizer locationInView:sceneView];
     NSArray<SCNHitTestResult *> * hitResults = [sceneView hitTest:touchLocation options:@{}];
     if ([hitResults count] != 0) {
-        SCNNode *node = [self getParentIfReferenceChild: hitResults[0].node];
-        [_channel invokeMethod: @"onNodeTap" arguments: node.name];
-        return; // consume event here
+        for(SCNHitTestResult *n in hitResults) {
+            SCNNode *node = [self getParentIfReferenceChild: n.node];
+            if (node.name != nil) {
+                [_channel invokeMethod: @"onNodeTap" arguments: node.name];
+                return; // consume event here
+            }
+        }
     }
 
-    NSArray<ARHitTestResult *> *arHitResults = [sceneView hitTest:touchLocation types:ARHitTestResultTypeFeaturePoint
-                                                + ARHitTestResultTypeEstimatedHorizontalPlane
-                                                + ARHitTestResultTypeEstimatedVerticalPlane
+    NSArray<ARHitTestResult *> *arHitResults = [sceneView hitTest:touchLocation types: 0
+//                                                + ARHitTestResultTypeFeaturePoint
+//                                                + ARHitTestResultTypeEstimatedHorizontalPlane
+//                                                + ARHitTestResultTypeEstimatedVerticalPlane
                                                 + ARHitTestResultTypeExistingPlane
                                                 + ARHitTestResultTypeExistingPlaneUsingExtent
                                                 + ARHitTestResultTypeExistingPlaneUsingGeometry
@@ -420,9 +425,7 @@ int viewHeight;
     if ([arHitResults count] != 0) {
         NSMutableArray<NSDictionary*>* results = [NSMutableArray arrayWithCapacity:[arHitResults count]];
         for (ARHitTestResult* r in arHitResults) {
-            if (r.type != ARHitTestResultTypeFeaturePoint) {
-                [results addObject:[self getDictFromHitResult:r]];
-            }
+            [results addObject:[self getDictFromHitResult:r]];
         }
         [_channel invokeMethod: @"onPlaneTap" arguments: results];
     }
@@ -794,6 +797,7 @@ int viewHeight;
 }
 
 - (void) addTransformableNode:(FlutterMethodCall*)call result:(FlutterResult)result {
+    // need plane detection
     
 }
 

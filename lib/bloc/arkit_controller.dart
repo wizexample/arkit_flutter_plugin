@@ -332,9 +332,11 @@ class ARKitController {
   }
 
   Future<void> _platformCallHandler(MethodCall call) {
-    if (debug) {
+//    if (debug) {
+    if (call.method != 'didUpdateNodeForAnchor') {
       print('_platformCallHandler call ${call.method} ${call.arguments}');
     }
+//    }
     switch (call.method) {
       case 'onError':
         if (onError != null) {
@@ -380,6 +382,7 @@ class ARKitController {
         }
         break;
       case 'didAddNodeForAnchor':
+        print('**** didAddNodeForAnchor ${call.arguments}');
         if (onAddNodeForAnchor != null) {
           final anchor = _buildAnchor(call.arguments);
           onAddNodeForAnchor(anchor);
