@@ -31,3 +31,11 @@ API_AVAILABLE(ios(11.3))
 @property UIImage* _Nullable image;
 
 @end
+
+@interface TransformableNode : SCNNode
+
+- (nonnull instancetype)initWithPlane:(nonnull ARHitTestResult*)plane;
+
+@property ARAnchor* _Nonnull anchor;
+
+@end

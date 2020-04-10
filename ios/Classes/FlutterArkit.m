@@ -6,6 +6,7 @@
 #import "DecodableUtils.h"
 #import <SceneKit/ModelIO.h>
 #import "ArkitPlugin.h"
+#import "ARSCNView+Gestures.h"
 #import <ReplayKit/ReplayKit.h>
 
 @interface FlutterArkitFactory()
@@ -63,7 +64,7 @@ const int checkMarkerCorners = 8;
 const int thresholdMarkerCorners = 5;
 int viewWidth;
 int viewHeight;
-
+ARHitTestResult* lastTappedPlane;
 
 - (instancetype)initWithWithFrame:(CGRect)frame
                    viewIdentifier:(int64_t)viewId
@@ -84,6 +85,7 @@ int viewHeight;
         _sceneView.delegate = self.delegate;
 
         objectsParent = [[SCNNode alloc] init];
+        objectsParent.name = @"objectsParent";
         [_sceneView.scene.rootNode addChildNode:objectsParent];
     }
     return self;
@@ -154,7 +156,8 @@ int viewHeight;
   } else if ([call.method isEqualToString:@"applyNurieTexture"]) {
       [self applyNurieTexture: call result: result];
   } else if ([call.method isEqualToString:@"addTransformableNode"]) {
-//      [self addTransformableNode: call result: result];
+      NSLog(@"addTransformableNode %@", call.arguments);
+      [self addTransformableNode: call result: result];
   } else {
     result(FlutterMethodNotImplemented);
   }
@@ -220,12 +223,18 @@ int viewHeight;
     if ([call.arguments[@"enablePinchRecognizer"] boolValue]) {
         UIPinchGestureRecognizer *pinchGestureRecognizer = [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(handlePinchFrom:)];
         [self.sceneView addGestureRecognizer:pinchGestureRecognizer];
+        [pinchGestureRecognizer setDelegate:self.sceneView];
     }
     
     if ([call.arguments[@"enablePanRecognizer"] boolValue]) {
         UIPanGestureRecognizer *panGestureRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePanFrom:)];
         [self.sceneView addGestureRecognizer:panGestureRecognizer];
+        [panGestureRecognizer setDelegate:self.sceneView];
     }
+    
+    UIRotationGestureRecognizer *rotationGestureRecognizer = [[UIRotationGestureRecognizer alloc] initWithTarget:self action:@selector(handleRotationFrom:)];
+    [self.sceneView addGestureRecognizer:rotationGestureRecognizer];
+    [rotationGestureRecognizer setDelegate:self.sceneView];
     
     self.sceneView.debugOptions = [self getDebugOptions:call.arguments];
     
@@ -422,13 +431,18 @@ int viewHeight;
                                                 + ARHitTestResultTypeExistingPlaneUsingExtent
                                                 + ARHitTestResultTypeExistingPlaneUsingGeometry
                                                 ];
+    ARHitTestResult* tapped = nil;
     if ([arHitResults count] != 0) {
         NSMutableArray<NSDictionary*>* results = [NSMutableArray arrayWithCapacity:[arHitResults count]];
         for (ARHitTestResult* r in arHitResults) {
             [results addObject:[self getDictFromHitResult:r]];
+            if (tapped == nil) {
+                tapped = r;
+            }
         }
         [_channel invokeMethod: @"onPlaneTap" arguments: results];
     }
+    lastTappedPlane = tapped;
 }
 
 - (void) handlePinchFrom: (UIPinchGestureRecognizer *) recognizer
@@ -440,11 +454,23 @@ int viewHeight;
         ARSCNView* sceneView = (ARSCNView *)recognizer.view;
         CGPoint touchLocation = [recognizer locationInView:sceneView];
         NSArray<SCNHitTestResult *> * hitResults = [sceneView hitTest:touchLocation options:@{}];
+        CGFloat scale = recognizer.scale;
         
         NSMutableArray<NSDictionary*>* results = [NSMutableArray arrayWithCapacity:[hitResults count]];
         for (SCNHitTestResult* r in hitResults) {
-            if (r.node.name != nil) {
-                [results addObject:@{@"name" : r.node.name, @"scale" : @(recognizer.scale)}];
+            SCNNode *node = [self getParentIfReferenceChild: r.node];
+            if (node.name != nil) {
+                [results addObject:@{@"name" : node.name, @"scale" : @(scale)}];
+                SCNNode* target = nil;
+                if ([node isKindOfClass:[TransformableNode class]]) {
+                    target = node;
+                } else if ([node.parentNode isKindOfClass:[TransformableNode class]]) {
+                    target = node.parentNode;
+                }
+                if (target != nil) {
+                    [target setScale:SCNVector3Make(target.scale.x * scale, target.scale.y * scale, target.scale.z * scale)];
+                }
+                break;
             }
         }
         if ([results count] != 0) {
@@ -467,12 +493,68 @@ int viewHeight;
         
         NSMutableArray<NSDictionary*>* results = [NSMutableArray arrayWithCapacity:[hitResults count]];
         for (SCNHitTestResult* r in hitResults) {
-            if (r.node.name != nil) {
-                [results addObject:@{@"name" : r.node.name, @"x" : @(translation.x), @"y":@(translation.y)}];
+            SCNNode *node = [self getParentIfReferenceChild: r.node];
+            if (node.name != nil) {
+                [results addObject:@{@"name" : node.name, @"x" : @(translation.x), @"y":@(translation.y)}];
+                SCNNode* target = nil;
+                if ([node isKindOfClass:[TransformableNode class]]) {
+                    target = node;
+                } else if ([node.parentNode isKindOfClass:[TransformableNode class]]) {
+                    target = node.parentNode;
+                }
+                if (target != nil) {
+                    NSArray<ARHitTestResult *> *arHitResults = [sceneView hitTest:touchLocation types: 0
+                                                                + ARHitTestResultTypeExistingPlane
+                                                                + ARHitTestResultTypeExistingPlaneUsingExtent
+                                                                + ARHitTestResultTypeExistingPlaneUsingGeometry
+                                                                ];
+                    if ([arHitResults count] != 0) {
+                        for (ARHitTestResult* r in arHitResults) {
+                            simd_float4 pos = r.worldTransform.columns[3];
+                            target.position = SCNVector3Make(pos.x, pos.y, pos.z);
+                            break;
+                        }
+                    }
+                }
+                break;
             }
         }
         if ([results count] != 0) {
             [_channel invokeMethod: @"onNodePan" arguments: results];
+        }
+    }
+}
+
+- (void) handleRotationFrom: (UIRotationGestureRecognizer *) recognizer
+{
+    if (![recognizer.view isKindOfClass:[ARSCNView class]])
+        return;
+    
+    if (recognizer.state == UIGestureRecognizerStateChanged) {
+        ARSCNView* sceneView = (ARSCNView *)recognizer.view;
+        CGPoint touchLocation = [recognizer locationInView:sceneView];
+        float rotation = [recognizer rotation];
+        NSArray<SCNHitTestResult *> * hitResults = [sceneView hitTest:touchLocation options:@{}];
+        
+        NSMutableArray<NSDictionary*>* results = [NSMutableArray arrayWithCapacity:[hitResults count]];
+        for (SCNHitTestResult* r in hitResults) {
+            SCNNode *node = [self getParentIfReferenceChild: r.node];
+            if (node.name != nil) {
+                [results addObject:@{@"name" : node.name, @"rotation" : @(rotation)}];
+                SCNNode* target = nil;
+                if ([node isKindOfClass:[TransformableNode class]]) {
+                    target = node;
+                } else if ([node.parentNode isKindOfClass:[TransformableNode class]]) {
+                    target = node.parentNode;
+                }
+                if (target != nil) {
+                    target.eulerAngles = SCNVector3Make(0, -rotation, 0);
+                }
+                break;
+            }
+        }
+        if ([results count] != 0) {
+            [_channel invokeMethod: @"onNodeRotate" arguments: results];
         }
     }
 }
@@ -798,7 +880,16 @@ int viewHeight;
 
 - (void) addTransformableNode:(FlutterMethodCall*)call result:(FlutterResult)result {
     // need plane detection
-    
+    if (lastTappedPlane == nil) return;
+    NSString* transformName = call.arguments[@"transformName"];
+    NSDictionary* params = call.arguments[@"node"];
+    if (transformName == nil || params == nil) return;
+    SCNGeometry* geometry = [GeometryBuilder createGeometry:params[@"geometry"] withDevice: _sceneView.device];
+    TransformableNode* transformableNode = [[TransformableNode alloc] initWithPlane:lastTappedPlane];
+    transformableNode.name = transformName;
+    [objectsParent addChildNode:transformableNode];
+    SCNNode* childNode = [self getNodeWithGeometry:geometry fromDict:params];
+    [transformableNode addChildNode:childNode];
 }
 
 #pragma mark - Utils
@@ -831,7 +922,7 @@ int viewHeight;
         node = [SCNNode node];
         SCNScene *scene = [SCNScene sceneWithURL: referenceURL options: nil error: nil];
         for (SCNNode* childNode in scene.rootNode.childNodes){
-            childNode.name = REFERENCE_CHILD_NODE;
+            [self renameReferenceNodes:childNode];
             [node addChildNode:childNode];
         }
     } else if([dict[@"dartType"] isEqualToString:@"ARKitObjectNode"]){
@@ -1020,6 +1111,13 @@ int viewHeight;
     return dict;
 }
 
+-(void) renameReferenceNodes:(SCNNode*) node {
+    node.name = REFERENCE_CHILD_NODE;
+    for(SCNNode* child in node.childNodes) {
+        [self renameReferenceNodes:child];
+    }
+}
+
 - (nullable SCNNode*) getParentIfReferenceChild:(SCNNode*) node {
     SCNNode* ret = node;
     if (ret.name == REFERENCE_CHILD_NODE) {
@@ -1031,9 +1129,9 @@ int viewHeight;
 - (void) debugNodeTree:(nullable SCNNode*)node level:(int)level{
     if (node == nil) node = _sceneView.scene.rootNode;
     for(SCNNode* child in node.childNodes) {
-        NSString* name = node.name;
+        NSString* name = child.name;
         if (name == nil) name = @"null";
-        NSLog(@"**** [%d] %@ - %@ ", level, name, node.class);
+        NSLog(@"**** [%d] %@ - %@ %@", level, name, [child class]);
         [self debugNodeTree:child level:level + 1];
     }
 }
@@ -1047,6 +1145,20 @@ int viewHeight;
         _name = name;
     }
     return self;
+}
+
+@end
+
+@implementation TransformableNode
+
+- (nonnull instancetype)initWithPlane:(nonnull ARHitTestResult*)plane {
+    if (self = [super init]) {
+        _anchor = plane.anchor;
+        simd_float4 pos = plane.worldTransform.columns[3];
+        self.position = SCNVector3Make(pos.x, pos.y, pos.z);
+    }
+    return self;
+
 }
 
 @end
