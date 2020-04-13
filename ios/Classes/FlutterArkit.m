@@ -404,6 +404,7 @@ ARHitTestResult* lastTappedPlane;
 - (void) handleTapFrom: (UITapGestureRecognizer *)recognizer
 {
     [self debugNodeTree:nil level:0];
+    [TransformableNode setSelectedNode:nil];
     
     if (![recognizer.view isKindOfClass:[ARSCNView class]])
         return;
@@ -418,6 +419,17 @@ ARHitTestResult* lastTappedPlane;
             SCNNode *node = [self getParentIfReferenceChild: n.node];
             if (node.name != nil) {
                 [_channel invokeMethod: @"onNodeTap" arguments: node.name];
+                
+                SCNNode* transformableNode = nil;
+                if ([node isKindOfClass:[TransformableNode class]]) {
+                    transformableNode = node;
+                } else if ([node.parentNode isKindOfClass:[TransformableNode class]]) {
+                    transformableNode = node.parentNode;
+                }
+                if (transformableNode != nil) {
+                    [TransformableNode setSelectedNode:transformableNode];
+                }
+                
                 return; // consume event here
             }
         }
@@ -427,7 +439,7 @@ ARHitTestResult* lastTappedPlane;
 //                                                + ARHitTestResultTypeFeaturePoint
 //                                                + ARHitTestResultTypeEstimatedHorizontalPlane
 //                                                + ARHitTestResultTypeEstimatedVerticalPlane
-                                                + ARHitTestResultTypeExistingPlane
+//                                                + ARHitTestResultTypeExistingPlane
                                                 + ARHitTestResultTypeExistingPlaneUsingExtent
                                                 + ARHitTestResultTypeExistingPlaneUsingGeometry
                                                 ];
@@ -457,22 +469,19 @@ ARHitTestResult* lastTappedPlane;
         CGFloat scale = recognizer.scale;
         
         NSMutableArray<NSDictionary*>* results = [NSMutableArray arrayWithCapacity:[hitResults count]];
-        for (SCNHitTestResult* r in hitResults) {
-            SCNNode *node = [self getParentIfReferenceChild: r.node];
-            if (node.name != nil) {
-                [results addObject:@{@"name" : node.name, @"scale" : @(scale)}];
-                SCNNode* target = nil;
-                if ([node isKindOfClass:[TransformableNode class]]) {
-                    target = node;
-                } else if ([node.parentNode isKindOfClass:[TransformableNode class]]) {
-                    target = node.parentNode;
+        if ([TransformableNode pinch:scale]) {
+            TransformableNode *node = [TransformableNode selectedNode];
+            [results addObject:@{@"name" : node.name, @"scale" : @(scale)}];
+        } else {
+            for (SCNHitTestResult* r in hitResults) {
+                SCNNode *node = [self getParentIfReferenceChild: r.node];
+                if (node.name != nil) {
+                    [results addObject:@{@"name" : node.name, @"scale" : @(scale)}];
+                    break;
                 }
-                if (target != nil) {
-                    [target setScale:SCNVector3Make(target.scale.x * scale, target.scale.y * scale, target.scale.z * scale)];
-                }
-                break;
             }
         }
+
         if ([results count] != 0) {
             [_channel invokeMethod: @"onNodePinch" arguments: results];
         }
@@ -503,8 +512,8 @@ ARHitTestResult* lastTappedPlane;
                     target = node.parentNode;
                 }
                 if (target != nil) {
+                    [TransformableNode setSelectedNode:target];
                     NSArray<ARHitTestResult *> *arHitResults = [sceneView hitTest:touchLocation types: 0
-                                                                + ARHitTestResultTypeExistingPlane
                                                                 + ARHitTestResultTypeExistingPlaneUsingExtent
                                                                 + ARHitTestResultTypeExistingPlaneUsingGeometry
                                                                 ];
@@ -537,20 +546,16 @@ ARHitTestResult* lastTappedPlane;
         NSArray<SCNHitTestResult *> * hitResults = [sceneView hitTest:touchLocation options:@{}];
         
         NSMutableArray<NSDictionary*>* results = [NSMutableArray arrayWithCapacity:[hitResults count]];
+        if ([TransformableNode rotation: rotation]) {
+            TransformableNode* node = [TransformableNode selectedNode];
+            [results addObject:@{@"name" : node.name, @"rotation" : @(rotation)}];
+        } else {
         for (SCNHitTestResult* r in hitResults) {
-            SCNNode *node = [self getParentIfReferenceChild: r.node];
-            if (node.name != nil) {
-                [results addObject:@{@"name" : node.name, @"rotation" : @(rotation)}];
-                SCNNode* target = nil;
-                if ([node isKindOfClass:[TransformableNode class]]) {
-                    target = node;
-                } else if ([node.parentNode isKindOfClass:[TransformableNode class]]) {
-                    target = node.parentNode;
+                SCNNode *node = [self getParentIfReferenceChild: r.node];
+                if (node.name != nil) {
+                    [results addObject:@{@"name" : node.name, @"rotation" : @(rotation)}];
+                    break;
                 }
-                if (target != nil) {
-                    target.eulerAngles = SCNVector3Make(0, -rotation, 0);
-                }
-                break;
             }
         }
         if ([results count] != 0) {
@@ -1131,7 +1136,7 @@ ARHitTestResult* lastTappedPlane;
     for(SCNNode* child in node.childNodes) {
         NSString* name = child.name;
         if (name == nil) name = @"null";
-        NSLog(@"**** [%d] %@ - %@ %@", level, name, [child class]);
+        NSLog(@"**** [%d] %@ - %@", level, name, [child class]);
         [self debugNodeTree:child level:level + 1];
     }
 }
@@ -1149,6 +1154,8 @@ ARHitTestResult* lastTappedPlane;
 
 @end
 
+static TransformableNode* selectedNode = nil;
+static SCNNode* selectedIcon = nil;
 @implementation TransformableNode
 
 - (nonnull instancetype)initWithPlane:(nonnull ARHitTestResult*)plane {
@@ -1160,5 +1167,52 @@ ARHitTestResult* lastTappedPlane;
     return self;
 
 }
+
++ (TransformableNode*) selectedNode {
+    return selectedNode;
+}
+
++ (void) createSelectedIcon {
+    SCNGeometry* geometry = [SCNCylinder cylinderWithRadius:0.03f height:0.003f];
+    SCNMaterial* material = [SCNMaterial material];
+    SCNMaterialProperty* property = [material valueForKey:@"diffuse"];
+    property.contents = UIColor.redColor;
+    [geometry setFirstMaterial: material];
+    selectedIcon = [SCNNode nodeWithGeometry:geometry];
+    [selectedIcon setName:@"SELECTED_ICON"];
+}
+
++ (void) setSelectedNode: (TransformableNode*) node {
+    if (selectedNode == node) return; // do nothing
+    if (selectedIcon == nil) {
+        [TransformableNode createSelectedIcon];
+    }
+    
+    if (selectedIcon.parentNode != nil) {
+        [selectedIcon removeFromParentNode];
+    }
+    if (node != nil) {
+        [node addChildNode:selectedIcon];
+    }
+    
+    selectedNode = node;
+}
+
++ (BOOL) pinch: (CGFloat) scale {
+    if (selectedNode != nil) {
+        [selectedNode setScale:SCNVector3Make(selectedNode.scale.x * scale, selectedNode.scale.y * scale, selectedNode.scale.z * scale)];
+        return true;
+    }
+    return false;
+}
+
++ (BOOL) rotation: (CGFloat) rotation {
+    if (selectedNode != nil) {
+        selectedNode.eulerAngles = SCNVector3Make(0, -rotation, 0);
+        return true;
+    }
+    return false;
+}
+
 
 @end

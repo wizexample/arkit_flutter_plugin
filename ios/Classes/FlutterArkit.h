@@ -34,6 +34,14 @@ API_AVAILABLE(ios(11.3))
 
 @interface TransformableNode : SCNNode
 
+@property (class, nullable) TransformableNode* selectedNode;
++ (TransformableNode* _Nullable) selectedNode;
++ (void) setSelectedNode: (TransformableNode* _Nullable) node;
+
++ (BOOL) pinch: (CGFloat) scale;
++ (BOOL) rotation: (CGFloat) rotation;
+
+
 - (nonnull instancetype)initWithPlane:(nonnull ARHitTestResult*)plane;
 
 @property ARAnchor* _Nonnull anchor;
