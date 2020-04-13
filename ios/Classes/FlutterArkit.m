@@ -899,12 +899,14 @@ ARHitTestResult* lastTappedPlane;
 
 #pragma mark - Utils
 -(ARPlaneDetection) getPlaneFromNumber: (int) number {
-  if (number == 0) {
-    return ARPlaneDetectionNone;
-  } else if (number == 1) {
+  if (number == 1) {
     return ARPlaneDetectionHorizontal;
+  } else if (number == 2) {
+    return ARPlaneDetectionVertical;
+  } else if (number == 3) {
+      return ARPlaneDetectionHorizontal | ARPlaneDetectionVertical;
   }
-  return ARPlaneDetectionVertical;
+  return ARPlaneDetectionNone;
 }
 
 -(ARWorldAlignment) getWorldAlignmentFromNumber: (int) number {
