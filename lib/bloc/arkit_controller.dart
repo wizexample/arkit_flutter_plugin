@@ -268,12 +268,12 @@ class ARKitController {
     _channel.invokeMethod<bool>('screenCapture');
   }
 
-  Future<bool> toggleScreenRecord() {
-    return _channel.invokeMethod<bool>('toggleScreenRecord');
+  Future<bool> toggleScreenRecord(String path) {
+    return _channel.invokeMethod<bool>('toggleScreenRecord', {'path': path});
   }
 
-  void startScreenRecord() {
-    _channel.invokeMethod<void>('startScreenRecord');
+  void startScreenRecord(String path) {
+    _channel.invokeMethod<void>('startScreenRecord', {'path': path});
   }
 
   void stopScreenRecord() {

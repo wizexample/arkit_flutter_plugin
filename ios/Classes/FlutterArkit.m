@@ -7,7 +7,7 @@
 #import <SceneKit/ModelIO.h>
 #import "ArkitPlugin.h"
 #import "ARSCNView+Gestures.h"
-#import <ReplayKit/ReplayKit.h>
+#import "VideoRecorder.h"
 
 @interface FlutterArkitFactory()
 @property NSObject<FlutterBinaryMessenger>* messenger;
@@ -47,6 +47,7 @@
 @property (strong) SceneViewDelegate* delegate;
 @property (readwrite) ARConfiguration *configuration;
 @property BOOL forceUserTapOnCenter;
+@property (strong, nonatomic) CIContext* ciContext;
 @end
 
 @implementation FlutterArkitController
@@ -65,6 +66,7 @@ const int thresholdMarkerCorners = 5;
 int viewWidth;
 int viewHeight;
 ARHitTestResult* lastTappedPlane;
+VideoRecorder* videoRecorder;
 
 - (instancetype)initWithWithFrame:(CGRect)frame
                    viewIdentifier:(int64_t)viewId
@@ -73,6 +75,7 @@ ARHitTestResult* lastTappedPlane;
     if ([super init]) {
         _viewId = viewId;
         _sceneView = [[ARSCNView alloc] initWithFrame:frame];
+        videoRecorder = [[VideoRecorder alloc] initWithView:_sceneView];
 
         NSString* channelName = [NSString stringWithFormat:@"arkit", viewId];
         NSLog(@"####### channelName=%@", channelName);
@@ -302,7 +305,7 @@ ARHitTestResult* lastTappedPlane;
 }
 
 - (UIImage*) affine:(UIImage*)input ul:(SCNVector3)ul ur:(SCNVector3)ur bl:(SCNVector3)bl br:(SCNVector3)br {
-    CIImage *ciImage = [CIImage imageWithCGImage:input.CGImage];
+    CIImage *inCIImage = [[CIImage alloc] initWithCGImage:input.CGImage];
     CIFilter *perspective = [CIFilter filterWithName:@"CIPerspectiveCorrection"];
     CGFloat scale = UIScreen.mainScreen.scale;
     CGFloat height = input.size.height;
@@ -310,9 +313,15 @@ ARHitTestResult* lastTappedPlane;
     [perspective setValue:[CIVector vectorWithX:ur.x * scale Y:height - ur.y * scale] forKey:@"inputTopRight"];
     [perspective setValue:[CIVector vectorWithX:bl.x * scale Y:height - bl.y * scale] forKey:@"inputBottomLeft"];
     [perspective setValue:[CIVector vectorWithX:br.x * scale Y:height - br.y * scale] forKey:@"inputBottomRight"];
-    [perspective setValue:ciImage forKey:kCIInputImageKey];
-    ciImage = perspective.outputImage;
-    return [UIImage imageWithCGImage:[[CIContext contextWithOptions:nil] createCGImage:ciImage fromRect:ciImage.extent]];
+    [perspective setValue:inCIImage forKey:kCIInputImageKey];
+    CIImage *outCIImage = perspective.outputImage;
+    if (_ciContext == nil) {
+        _ciContext = [CIContext context];
+    }
+    CGImageRef outCGImage = [_ciContext createCGImage:outCIImage fromRect:outCIImage.extent];
+    UIImage *ret = [UIImage imageWithCGImage:outCGImage scale:1.0f orientation:UIImageOrientationUp];
+    CGImageRelease(outCGImage);
+    return ret;
 }
 
 - (void)startWorldTrackingSessionWithImage:(FlutterMethodCall*)call result:(FlutterResult)result {
@@ -734,46 +743,28 @@ ARHitTestResult* lastTappedPlane;
 - (void) screenCapture:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     UIImage *image = [_sceneView snapshot];
     UIImageWriteToSavedPhotosAlbum(image, self, @selector(onCaptureImageSaved:didFinishSavingWithError:contextInfo:), nil);
+    result(nil);
 }
 
 - (void) toggleScreenRecord:(FlutterMethodCall*)call andResult:(FlutterResult)result {
-    if (![[RPScreenRecorder sharedRecorder] isRecording]) {
-        NSLog(@"toggleScreenRecord start");
-        [[RPScreenRecorder sharedRecorder] startRecordingWithMicrophoneEnabled:NO handler:^(NSError * _Nullable error) {
-            if (error) {
-                NSLog(@"failed to start recording, %@", [error localizedDescription]);
-            }
-        }];
-    } else {
-        NSLog(@"toggleScreenRecord stop");
-        [[RPScreenRecorder sharedRecorder] stopRecordingWithHandler:^(RPPreviewViewController * _Nullable previewViewController, NSError * _Nullable error) {
-            if (error) {
-                NSLog(@"failed to stop recording, %@", [error localizedDescription]);
-            }
-        }];
+    NSString* path = call.arguments[@"path"];
+    if (path != nil) {
+        [videoRecorder toggleRecord: path];
     }
+    result(nil);
 }
 
 - (void)startScreenRecord:(FlutterMethodCall*)call andResult:(FlutterResult)result {
-    if (![[RPScreenRecorder sharedRecorder] isRecording]) {
-        NSLog(@"startScreenRecord");
-        [[RPScreenRecorder sharedRecorder] startRecordingWithMicrophoneEnabled:NO handler:^(NSError * _Nullable error) {
-            if (error) {
-                NSLog(@"failed to start recording, %@", [error localizedDescription]);
-            }
-        }];
+    NSString* path = call.arguments[@"path"];
+    if (path != nil) {
+        [videoRecorder startRecord: path];
     }
+    result(nil);
 }
 
 - (void)stopScreenRecord:(FlutterMethodCall*)call andResult:(FlutterResult)result {
-    if ([[RPScreenRecorder sharedRecorder] isRecording]) {
-        NSLog(@"stopScreenRecord");
-        [[RPScreenRecorder sharedRecorder] stopRecordingWithHandler:^(RPPreviewViewController * _Nullable previewViewController, NSError * _Nullable error) {
-            if (error) {
-                NSLog(@"failed to stop recording, %@", [error localizedDescription]);
-            }
-        }];
-    }
+    [videoRecorder stopRecord];
+    result(nil);
 }
 
 - (void) onCaptureImageSaved: (UIImage*)image didFinishSavingWithError:(NSError *)error contextInfo:(void *)contextInfo {
@@ -812,10 +803,14 @@ ARHitTestResult* lastTappedPlane;
             SCNVector3 arr[] = {ul, ur, bl, br};
 
             if ([self validMarkerCorners:viewWidth height:viewHeight corners:arr]) {
-                UIImage *uiImage = [self affine:[_sceneView snapshot] ul:ul ur:ur bl:bl br:br];
-                nurie.image = uiImage;
-                [self startFindingNurieMarker:false];
-                NSLog(@"**** captured");
+                @autoreleasepool {
+                    nurie.image = nil;
+                    UIImage* input = [_sceneView snapshot];
+                    UIImage *uiImage = [self affine:input ul:ul ur:ur bl:bl br:br];
+                    nurie.image = uiImage;
+                    [self startFindingNurieMarker:false];
+                    NSLog(@"**** captured");
+                }
             }
             return true;
         }
