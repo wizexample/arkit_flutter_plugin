@@ -7,49 +7,61 @@
 
 #import "VideoRecorder.h"
 
-CGFloat scale;
-BOOL isRecording = false;
-CADisplayLink* displayLink = nil;
+const int frameRate = 30;
 
-int frameCount = 0;
-int frameRate = 30;
-NSString* movName;
-NSURL* outputURL;
-AVAssetWriter* videoWriter;
-AVAssetWriterInput* writerInput;
-int movPixelWidth;
-int movPixelHeight;
-CGSize movieSize;
-AVAssetWriterInputPixelBufferAdaptor* adaptor;
-dispatch_queue_t queue;
+@interface VideoRecorder()
+
+@property CGFloat scale;
+@property BOOL isRecording;
+@property CADisplayLink* displayLink;
+
+@property int frameCount;
+@property NSString* movName;
+@property NSURL* outputURL;
+@property AVAssetWriter* videoWriter;
+@property AVAssetWriterInput* writerInput;
+@property int movPixelWidth;
+@property int movPixelHeight;
+@property CGSize movieSize;
+@property AVAssetWriterInputPixelBufferAdaptor* adaptor;
+@property dispatch_queue_t queue;
+
+
+@property AVAudioSession *session;
+
+@end
 
 @implementation VideoRecorder
 
 - (nonnull instancetype)initWithView:(nonnull SCNView*)view {
     if (self = [super init]) {
         _view = view;
-        scale = UIScreen.mainScreen.scale;
+        _scale = UIScreen.mainScreen.scale;
     }
     return self;
 }
 
 
 - (void) startRecord:(NSString*) path {
-    if (isRecording) return;
+    if (_isRecording) return;
     NSLog(@"startScreenRecord");
-    isRecording = true;
+    _isRecording = true;
     [self initRecorderWithPath: path];
 
-    displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(saveFrameImage)];
-    displayLink.preferredFramesPerSecond = frameRate;
-    [displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
+    _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(saveFrameImage)];
+    _displayLink.preferredFramesPerSecond = frameRate;
+    [_displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
+
+    // todo start record mic | output
 }
 
 - (void) stopRecord {
-    if (!isRecording) return;
+    if (!_isRecording) return;
     NSLog(@"stopScreenRecord");
-    isRecording = false;
-    [displayLink removeFromRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
+    _isRecording = false;
+    [_displayLink removeFromRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
+    // todo stop record audio
+
     [self finishVideoWriting];
 }
 
@@ -59,44 +71,44 @@ dispatch_queue_t queue;
 }
 
 - (void) initRecorderWithPath: (NSString*) path {
-    frameCount = 0;
-    movName = path;
-    queue = dispatch_queue_create("makingMovie", DISPATCH_QUEUE_SERIAL);
-    outputURL = [NSURL fileURLWithPath:movName];
+    _frameCount = 0;
+    _movName = path;
+    _queue = dispatch_queue_create("makingMovie", DISPATCH_QUEUE_SERIAL);
+    _outputURL = [NSURL fileURLWithPath:_movName];
     if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
         [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
     }
-//    videoWriter = [[AVAssetWriter alloc] initWithURL:outputURL fileType:AVFileTypeQuickTimeMovie error:nil];
-    videoWriter = [AVAssetWriter assetWriterWithURL:outputURL fileType:AVFileTypeQuickTimeMovie error:nil];
-    [self calcPixelSizeForMovie:_view.frame.size scale:scale];
-    NSDictionary* outputSetting = @{AVVideoCodecKey: AVVideoCodecTypeH264, AVVideoWidthKey: @(movPixelWidth), AVVideoHeightKey: @(movPixelHeight)};
-    writerInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo outputSettings:outputSetting];
-    writerInput.expectsMediaDataInRealTime = true;
-    [videoWriter addInput:writerInput];
-    adaptor = [AVAssetWriterInputPixelBufferAdaptor assetWriterInputPixelBufferAdaptorWithAssetWriterInput:writerInput sourcePixelBufferAttributes:@{
+    _videoWriter = [AVAssetWriter assetWriterWithURL:_outputURL fileType:AVFileTypeQuickTimeMovie error:nil];
+    [self calcPixelSizeForMovie:_view.frame.size scale:_scale];
+    NSDictionary* outputSetting = @{AVVideoCodecKey: AVVideoCodecTypeH264, AVVideoWidthKey: @(_movPixelWidth), AVVideoHeightKey: @(_movPixelHeight)};
+    _writerInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo outputSettings:outputSetting];
+    _writerInput.expectsMediaDataInRealTime = true;
+    [_videoWriter addInput:_writerInput];
+    _adaptor = [AVAssetWriterInputPixelBufferAdaptor assetWriterInputPixelBufferAdaptorWithAssetWriterInput:_writerInput sourcePixelBufferAttributes:@{
         (__bridge_transfer NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32ARGB),
-        (__bridge_transfer NSString *)kCVPixelBufferWidthKey: @(movPixelWidth),
-        (__bridge_transfer NSString *)kCVPixelBufferHeightKey: @(movPixelHeight)
+        (__bridge_transfer NSString *)kCVPixelBufferWidthKey: @(_movPixelWidth),
+        (__bridge_transfer NSString *)kCVPixelBufferHeightKey: @(_movPixelHeight)
     }];
 }
 
 - (void) saveFrameImage {
     @autoreleasepool {
-        if (frameCount == 0) {
-            if (videoWriter != nil) {
-                if (!videoWriter.startWriting) {
+        if (_frameCount == 0) {
+            if (_videoWriter != nil) {
+                if (!_videoWriter.startWriting) {
                     NSLog(@"videoWriter startWriting is false");
                 }
-                [videoWriter startSessionAtSourceTime:kCMTimeZero];
+                [_videoWriter startSessionAtSourceTime:kCMTimeZero];
                 NSLog(@"making movie is started");
             } else {
                 NSLog(@"videoWriter is nil");
             }
         }
         UIImage* img = _view.snapshot;
-        dispatch_async(queue, ^{
+        UIImage* cropped = [img cropImage:_movieSize];
+        dispatch_async(_queue, ^{
             @autoreleasepool {
-                [self appendImageToBuffer:img];
+                [self appendImageToBuffer:cropped];
             }
         });
     }
@@ -105,20 +117,19 @@ dispatch_queue_t queue;
 - (void) calcPixelSizeForMovie: (CGSize) size scale:(CGFloat) scale {
     const int num = 16;
     int pixelWidth = (int)(size.width * scale);
-    movPixelWidth = (pixelWidth / num) * num;
+    _movPixelWidth = (pixelWidth / num) * num;
     int pixelHeight = (int)(size.height * scale);
-    movPixelHeight = (pixelHeight / num) * num;
-    movieSize = CGSizeMake(((CGFloat)movPixelWidth), ((CGFloat)movPixelHeight));
+    _movPixelHeight = (pixelHeight / num) * num;
+    _movieSize = CGSizeMake(((CGFloat)_movPixelWidth), ((CGFloat)_movPixelHeight));
 }
 
 - (void) appendImageToBuffer:(UIImage*) image {
-    if (adaptor == nil) return;
-    frameCount ++;
-    if (!adaptor.assetWriterInput.isReadyForMoreMediaData) return;
-    CMTime frameTime = CMTimeMake((int64_t)(frameCount - 1), frameRate);
-    UIImage* cropped = [image cropImage:movieSize];
-    CVPixelBufferRef buffer = [self pixelBufferFromCGImage:cropped.CGImage];
-    [adaptor appendPixelBuffer:buffer withPresentationTime:frameTime];
+    if (_adaptor == nil) return;
+    _frameCount ++;
+    if (!_adaptor.assetWriterInput.isReadyForMoreMediaData) return;
+    CMTime frameTime = CMTimeMake((int64_t)(_frameCount - 1), frameRate);
+    CVPixelBufferRef buffer = [self pixelBufferFromCGImage:image.CGImage];
+    [_adaptor appendPixelBuffer:buffer withPresentationTime:frameTime];
     CFRelease(buffer);
 }
 
@@ -154,23 +165,26 @@ dispatch_queue_t queue;
                                                  (CGBitmapInfo)kCGImageAlphaNoneSkipFirst);
     
     CGContextDrawImage(context, CGRectMake(0, 0, (CGFloat) width, (CGFloat) height), image);
-    CGContextRelease(context);
-    CGColorSpaceRelease(rgbColorSpace);
-
+    CFRelease(context);
+    CFRelease(rgbColorSpace);
+    
     CVPixelBufferUnlockBaseAddress(pxBuffer, 0);
     return pxBuffer;
 }
 
 - (void) finishVideoWriting {
-    dispatch_async(queue, ^{
-        [writerInput markAsFinished];
-        [videoWriter endSessionAtSourceTime:CMTimeMake((int64_t)(frameCount - 1), frameRate)];
-        [videoWriter finishWritingWithCompletionHandler:^{
+    dispatch_async(_queue, ^{
+        [self->_writerInput markAsFinished];
+        [self->_videoWriter endSessionAtSourceTime:CMTimeMake((int64_t)(self->_frameCount - 1), frameRate)];
+        [self->_videoWriter finishWritingWithCompletionHandler:^{
             NSLog(@"movie created");
         }];
-        CVPixelBufferPoolRelease(adaptor.pixelBufferPool);
-        if (UIVideoAtPathIsCompatibleWithSavedPhotosAlbum(outputURL.path)) {
-            UISaveVideoAtPathToSavedPhotosAlbum(outputURL.path, self, nil, nil);
+        CVPixelBufferPoolRelease(self->_adaptor.pixelBufferPool);
+        
+        // todo combine movie and auido
+        
+        if (UIVideoAtPathIsCompatibleWithSavedPhotosAlbum(self->_outputURL.path)) {
+            UISaveVideoAtPathToSavedPhotosAlbum(self->_outputURL.path, self, nil, nil);
             NSLog(@"save to album");
         } else {
             NSLog(@"failure saving to album");
