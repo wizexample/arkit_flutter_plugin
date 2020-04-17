@@ -16,9 +16,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (nonnull instancetype)initWithView:(nonnull SCNView*)view;
 
-- (void) startRecord:(NSString*) path;
+- (void) startRecord:(NSString*) path useAudio:(int)useAudio;
 - (void) stopRecord;
-- (void) toggleRecord:(NSString*) path;
+- (void) toggleRecord:(NSString*) path useAudio:(int)useAudio;
 
 @end
 

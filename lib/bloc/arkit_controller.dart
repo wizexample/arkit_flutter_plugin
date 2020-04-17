@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:arkit_plugin/arkit_node.dart';
+import 'package:arkit_plugin/arkit_plugin.dart';
 import 'package:arkit_plugin/arkit_video_node.dart';
 import 'package:arkit_plugin/bloc/arkit_arplane_detection.dart';
 import 'package:arkit_plugin/bloc/arkit_configuration.dart';
@@ -268,12 +269,20 @@ class ARKitController {
     _channel.invokeMethod<bool>('screenCapture');
   }
 
-  Future<bool> toggleScreenRecord(String path) {
-    return _channel.invokeMethod<bool>('toggleScreenRecord', {'path': path});
+  Future<bool> toggleScreenRecord(
+    String path, {
+    ARKitRecordingWithAudio useAudio = ARKitRecordingWithAudio.None,
+  }) {
+    return _channel.invokeMethod<bool>(
+        'toggleScreenRecord', {'path': path, 'useAudio': useAudio._value});
   }
 
-  void startScreenRecord(String path) {
-    _channel.invokeMethod<void>('startScreenRecord', {'path': path});
+  void startScreenRecord(
+    String path, {
+    ARKitRecordingWithAudio useAudio = ARKitRecordingWithAudio.None,
+  }) {
+    _channel.invokeMethod<void>(
+        'startScreenRecord', {'path': path, 'useAudio': useAudio._value});
   }
 
   void stopScreenRecord() {
@@ -609,5 +618,37 @@ class ARKitController {
         return ARKitFaceAnchor.fromMap(map);
     }
     return ARKitAnchor.fromMap(map);
+  }
+}
+
+class ARKitRecordingWithAudio {
+  const ARKitRecordingWithAudio._(this._value, this._text);
+
+  static const ARKitRecordingWithAudio None =
+      ARKitRecordingWithAudio._(0, 'None');
+  static const ARKitRecordingWithAudio UseMic =
+      ARKitRecordingWithAudio._(1, 'UseMic');
+  static final values = [
+    None,
+    UseMic,
+  ];
+
+  final int _value;
+  final String _text;
+
+  static ARKitRecordingWithAudio get(int value) {
+    ARKitRecordingWithAudio ret = UseMic;
+    values.forEach((m) {
+      if (m._value == value) {
+        ret = m;
+        return;
+      }
+    });
+    return ret;
+  }
+
+  @override
+  String toString() {
+    return '$_text - $_value';
   }
 }

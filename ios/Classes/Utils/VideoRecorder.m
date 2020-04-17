@@ -7,7 +7,10 @@
 
 #import "VideoRecorder.h"
 
-const int frameRate = 30;
+static const int frameRate = 30;
+static NSURL* tempVideoURL;
+static NSURL* tempAudioURL;
+static const int USE_MIC = 1;
 
 @interface VideoRecorder()
 
@@ -16,7 +19,6 @@ const int frameRate = 30;
 @property CADisplayLink* displayLink;
 
 @property int frameCount;
-@property NSString* movName;
 @property NSURL* outputURL;
 @property AVAssetWriter* videoWriter;
 @property AVAssetWriterInput* writerInput;
@@ -26,8 +28,7 @@ const int frameRate = 30;
 @property AVAssetWriterInputPixelBufferAdaptor* adaptor;
 @property dispatch_queue_t queue;
 
-
-@property AVAudioSession *session;
+@property AVAudioRecorder* audioRecorder;
 
 @end
 
@@ -37,22 +38,54 @@ const int frameRate = 30;
     if (self = [super init]) {
         _view = view;
         _scale = UIScreen.mainScreen.scale;
+        tempVideoURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingString:@"/tempVideo.mp4"]];
+        tempAudioURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingString:@"/tempAudio.caf"]];
     }
     return self;
 }
 
 
-- (void) startRecord:(NSString*) path {
+- (void) startRecord:(NSString*) path useAudio:(int)useAudio {
     if (_isRecording) return;
     NSLog(@"startScreenRecord");
     _isRecording = true;
-    [self initRecorderWithPath: path];
+    [self clearFiles:path];
+    [self initVideoRecorderWithPath: path];
 
     _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(saveFrameImage)];
     _displayLink.preferredFramesPerSecond = frameRate;
     [_displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
 
-    // todo start record mic | output
+    NSError *error = nil;
+    AVAudioSession* session = [AVAudioSession sharedInstance];
+    [session setCategory:AVAudioSessionCategoryPlayAndRecord error:&error];
+    if (error != nil) {
+        NSLog(@"Error when preparing audio session : %@", [error localizedDescription]);
+        return;
+    }
+    [session setActive:YES error:&error];
+    if (error != nil) {
+        NSLog(@"Error when enabling audio session : %@", [error localizedDescription]);
+        return;
+    }
+    if (useAudio == USE_MIC) {
+        [self startRecordMic];
+    }
+}
+
+- (void) startRecordMic {
+    NSDictionary* audioSettings = @{
+        AVFormatIDKey: @(kAudioFormatLinearPCM),
+        AVSampleRateKey: @(44100.0),
+        AVNumberOfChannelsKey: @(2),
+        AVEncoderAudioQualityKey: @(AVAudioQualityHigh),
+        AVLinearPCMIsBigEndianKey: @(NO),
+        AVLinearPCMIsFloatKey: @(NO),
+    };
+    _audioRecorder = [[AVAudioRecorder alloc] initWithURL:tempAudioURL settings:audioSettings error:nil];
+    [_audioRecorder prepareToRecord];
+    _audioRecorder.meteringEnabled = YES;
+    [_audioRecorder record];
 }
 
 - (void) stopRecord {
@@ -60,25 +93,45 @@ const int frameRate = 30;
     NSLog(@"stopScreenRecord");
     _isRecording = false;
     [_displayLink removeFromRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
-    // todo stop record audio
+
+    [self stopRecordMic];
 
     [self finishVideoWriting];
 }
 
-- (void) toggleRecord:(NSString*) path {
-    NSLog(@"toggleScreenRecord");
-
+- (void) stopRecordMic {
+    if ([_audioRecorder isRecording]) {
+        [_audioRecorder stop];
+    }
 }
 
-- (void) initRecorderWithPath: (NSString*) path {
-    _frameCount = 0;
-    _movName = path;
-    _queue = dispatch_queue_create("makingMovie", DISPATCH_QUEUE_SERIAL);
-    _outputURL = [NSURL fileURLWithPath:_movName];
-    if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
-        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+- (void) toggleRecord:(NSString*) path useAudio:(int)useAudio {
+    if (!_isRecording) {
+        [self startRecord:path useAudio:useAudio];
+    } else {
+        [self stopRecord];
     }
-    _videoWriter = [AVAssetWriter assetWriterWithURL:_outputURL fileType:AVFileTypeQuickTimeMovie error:nil];
+}
+
+- (void) clearFiles: (NSString*) path {
+    NSFileManager* fm = [NSFileManager defaultManager];
+    if ([fm fileExistsAtPath:path]) {
+        [fm removeItemAtPath:path error:nil];
+    }
+    if ([fm fileExistsAtPath:path]) {
+        [fm removeItemAtURL:tempAudioURL error:nil];
+    }
+    if ([fm fileExistsAtPath:path]) {
+        [fm removeItemAtURL:tempVideoURL error:nil];
+    }
+}
+
+- (void) initVideoRecorderWithPath: (NSString*) path {
+    _frameCount = 0;
+    _queue = dispatch_queue_create("makingMovie", DISPATCH_QUEUE_SERIAL);
+    _outputURL = [NSURL fileURLWithPath:path];
+
+    _videoWriter = [AVAssetWriter assetWriterWithURL:tempVideoURL fileType:AVFileTypeQuickTimeMovie error:nil];
     [self calcPixelSizeForMovie:_view.frame.size scale:_scale];
     NSDictionary* outputSetting = @{AVVideoCodecKey: AVVideoCodecTypeH264, AVVideoWidthKey: @(_movPixelWidth), AVVideoHeightKey: @(_movPixelHeight)};
     _writerInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo outputSettings:outputSetting];
@@ -177,19 +230,82 @@ const int frameRate = 30;
         [self->_writerInput markAsFinished];
         [self->_videoWriter endSessionAtSourceTime:CMTimeMake((int64_t)(self->_frameCount - 1), frameRate)];
         [self->_videoWriter finishWritingWithCompletionHandler:^{
-            NSLog(@"movie created");
+            NSLog(@"movie created count:%d", self->_frameCount);
         }];
         CVPixelBufferPoolRelease(self->_adaptor.pixelBufferPool);
-        
-        // todo combine movie and auido
-        
-        if (UIVideoAtPathIsCompatibleWithSavedPhotosAlbum(self->_outputURL.path)) {
-            UISaveVideoAtPathToSavedPhotosAlbum(self->_outputURL.path, self, nil, nil);
-            NSLog(@"save to album");
-        } else {
-            NSLog(@"failure saving to album");
-        }
+
+        [self combineMovieAndAudio];
     });
+}
+
+- (void) combineMovieAndAudio {
+    NSFileManager* fm = [NSFileManager defaultManager];
+    if ([fm fileExistsAtPath:tempAudioURL.path]) {
+        // combine
+        AVMutableComposition* composition = [AVMutableComposition composition];
+        AVMutableCompositionTrack* compositionVideoTrack = [composition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
+        NSError* error;
+        
+        AVURLAsset* vAsset = [[AVURLAsset alloc] initWithURL:tempVideoURL options:nil];
+        CMTimeRange range = CMTimeRangeMake(kCMTimeZero, vAsset.duration);
+        AVAssetTrack* videoTrack = [vAsset tracksWithMediaType:AVMediaTypeVideo][0];
+        
+        [compositionVideoTrack insertTimeRange:range ofTrack:videoTrack atTime:kCMTimeZero error:&error];
+        AVMutableVideoCompositionInstruction* instruction = [AVMutableVideoCompositionInstruction videoCompositionInstruction];
+        instruction.timeRange = range;
+        AVMutableVideoCompositionLayerInstruction* layerInstruction = [AVMutableVideoCompositionLayerInstruction videoCompositionLayerInstructionWithAssetTrack:compositionVideoTrack];
+        
+        AVURLAsset* sAsset = [[AVURLAsset alloc] initWithURL:tempAudioURL options:nil];
+        AVAssetTrack* soundTrack = [sAsset tracksWithMediaType:AVMediaTypeAudio][0];
+        AVMutableCompositionTrack* compositionSoundTrack = [composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+        [compositionSoundTrack insertTimeRange:range ofTrack:soundTrack atTime:kCMTimeZero error:&error];
+        
+        CGSize videoSize = videoTrack.naturalSize;
+        CGAffineTransform transform = videoTrack.preferredTransform;
+        if (transform.a == 0 && transform.d == 0 && (transform.b == -1.0 || transform.b == 1.0) && (transform.c == -1.0 || transform.c == 1.0)) {
+            videoSize = CGSizeMake(videoSize.height, videoSize.width);
+        }
+        
+        [layerInstruction setTransform:transform atTime:kCMTimeZero];
+        instruction.layerInstructions = @[layerInstruction];
+        
+        AVMutableVideoComposition* videoComposition = [AVMutableVideoComposition videoComposition];
+        videoComposition.renderSize = videoSize;
+        videoComposition.instructions = @[instruction];
+        videoComposition.frameDuration = CMTimeMake(1, frameRate);
+        
+        AVAssetExportSession* session = [[AVAssetExportSession alloc] initWithAsset:composition presetName:AVAssetExportPresetHighestQuality];
+        session.outputURL = _outputURL;
+        session.outputFileType = AVFileTypeQuickTimeMovie;
+        session.videoComposition = videoComposition;
+        [session exportAsynchronouslyWithCompletionHandler:^{
+            if (session.status == AVAssetExportSessionStatusCompleted) {
+                NSLog(@"combine complete");
+            } else {
+                NSLog(@"combine error %@", session.error);
+            }
+            // delete temporary files
+            [fm removeItemAtURL:tempAudioURL error:nil];
+            [fm removeItemAtURL:tempVideoURL error:nil];
+            
+            [self registerVideoToGallery];
+        }];
+    } else {
+        // lacked audio file, move movie
+        [fm moveItemAtURL:tempVideoURL toURL:_outputURL error:nil];
+        NSLog(@"move complete");
+        [self registerVideoToGallery];
+    }
+}
+
+- (void) registerVideoToGallery {
+    if (UIVideoAtPathIsCompatibleWithSavedPhotosAlbum(self->_outputURL.path)) {
+        UISaveVideoAtPathToSavedPhotosAlbum(self->_outputURL.path, self, nil, nil);
+        NSLog(@"save to album");
+    } else {
+        NSLog(@"failure saving to album");
+    }
+    // todo notify method channel
 }
 
 @end

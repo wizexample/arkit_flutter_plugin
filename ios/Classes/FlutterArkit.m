@@ -748,16 +748,18 @@ VideoRecorder* videoRecorder;
 
 - (void) toggleScreenRecord:(FlutterMethodCall*)call andResult:(FlutterResult)result {
     NSString* path = call.arguments[@"path"];
+    NSNumber* useAudio = call.arguments[@"useAudio"];
     if (path != nil) {
-        [videoRecorder toggleRecord: path];
+        [videoRecorder toggleRecord: path useAudio:[useAudio intValue]];
     }
     result(nil);
 }
 
 - (void)startScreenRecord:(FlutterMethodCall*)call andResult:(FlutterResult)result {
     NSString* path = call.arguments[@"path"];
+    NSNumber* useAudio = call.arguments[@"useAudio"];
     if (path != nil) {
-        [videoRecorder startRecord: path];
+        [videoRecorder startRecord: path useAudio:[useAudio intValue]];
     }
     result(nil);
 }
