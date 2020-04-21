@@ -40,6 +40,7 @@ API_AVAILABLE(ios(11.3))
 
 + (BOOL) pinch: (CGFloat) scale;
 + (BOOL) rotation: (CGFloat) rotation;
++ (BOOL) startRotate;
 
 
 - (nonnull instancetype)initWithPlane:(nonnull ARHitTestResult*)plane;

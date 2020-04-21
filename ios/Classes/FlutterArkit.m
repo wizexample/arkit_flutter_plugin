@@ -548,7 +548,9 @@ VideoRecorder* videoRecorder;
     if (![recognizer.view isKindOfClass:[ARSCNView class]])
         return;
     
-    if (recognizer.state == UIGestureRecognizerStateChanged) {
+    if (recognizer.state == UIGestureRecognizerStateBegan) {
+        [TransformableNode startRotate];
+    } else if (recognizer.state == UIGestureRecognizerStateChanged) {
         ARSCNView* sceneView = (ARSCNView *)recognizer.view;
         CGPoint touchLocation = [recognizer locationInView:sceneView];
         float rotation = [recognizer rotation];
@@ -1155,6 +1157,11 @@ VideoRecorder* videoRecorder;
 
 static TransformableNode* selectedNode = nil;
 static SCNNode* selectedIcon = nil;
+
+@interface TransformableNode()
+@property CGFloat rotateStartDegree;
+@end
+
 @implementation TransformableNode
 
 - (nonnull instancetype)initWithPlane:(nonnull ARHitTestResult*)plane {
@@ -1207,11 +1214,18 @@ static SCNNode* selectedIcon = nil;
 
 + (BOOL) rotation: (CGFloat) rotation {
     if (selectedNode != nil) {
-        selectedNode.eulerAngles = SCNVector3Make(0, -rotation, 0);
+        selectedNode.eulerAngles = SCNVector3Make(0, selectedNode.rotateStartDegree -rotation, 0);
         return true;
     }
     return false;
 }
 
++ (BOOL) startRotate {
+    if (selectedNode != nil) {
+        selectedNode.rotateStartDegree = selectedNode.eulerAngles.y;
+        return true;
+    }
+    return false;
+}
 
 @end

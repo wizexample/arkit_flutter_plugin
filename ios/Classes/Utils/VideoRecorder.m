@@ -19,6 +19,7 @@ static const int USE_MIC = 1;
 @property CADisplayLink* displayLink;
 
 @property int frameCount;
+@property double recStartTime;
 @property NSURL* outputURL;
 @property AVAssetWriter* videoWriter;
 @property AVAssetWriterInput* writerInput;
@@ -38,8 +39,8 @@ static const int USE_MIC = 1;
     if (self = [super init]) {
         _view = view;
         _scale = UIScreen.mainScreen.scale;
-        tempVideoURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingString:@"/tempVideo.mp4"]];
-        tempAudioURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingString:@"/tempAudio.caf"]];
+        tempVideoURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingString:@"tempVideo.mp4"]];
+        tempAudioURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingString:@"tempAudio.caf"]];
     }
     return self;
 }
@@ -47,7 +48,7 @@ static const int USE_MIC = 1;
 
 - (void) startRecord:(NSString*) path useAudio:(int)useAudio {
     if (_isRecording) return;
-    NSLog(@"startScreenRecord");
+    NSLog(@"startScreenRecord audio:%d", useAudio);
     _isRecording = true;
     [self clearFiles:path];
     [self initVideoRecorderWithPath: path];
@@ -151,6 +152,7 @@ static const int USE_MIC = 1;
                 if (!_videoWriter.startWriting) {
                     NSLog(@"videoWriter startWriting is false");
                 }
+                _recStartTime = [[NSDate date] timeIntervalSince1970];
                 [_videoWriter startSessionAtSourceTime:kCMTimeZero];
                 NSLog(@"making movie is started");
             } else {
@@ -179,8 +181,10 @@ static const int USE_MIC = 1;
 - (void) appendImageToBuffer:(UIImage*) image {
     if (_adaptor == nil) return;
     _frameCount ++;
+//    _frameCount = (int)(([[NSDate date] timeIntervalSince1970] - _recStartTime) / (1.0 / frameRate));
     if (!_adaptor.assetWriterInput.isReadyForMoreMediaData) return;
     CMTime frameTime = CMTimeMake((int64_t)(_frameCount - 1), frameRate);
+//    CMTime frameTime = CMTimeMake((int64_t)(_frameCount), frameRate);
     CVPixelBufferRef buffer = [self pixelBufferFromCGImage:image.CGImage];
     [_adaptor appendPixelBuffer:buffer withPresentationTime:frameTime];
     CFRelease(buffer);
@@ -229,12 +233,12 @@ static const int USE_MIC = 1;
     dispatch_async(_queue, ^{
         [self->_writerInput markAsFinished];
         [self->_videoWriter endSessionAtSourceTime:CMTimeMake((int64_t)(self->_frameCount - 1), frameRate)];
+//        [self->_videoWriter endSessionAtSourceTime:CMTimeMake((int64_t)(self->_frameCount), frameRate)];
         [self->_videoWriter finishWritingWithCompletionHandler:^{
             NSLog(@"movie created count:%d", self->_frameCount);
+            CVPixelBufferPoolRelease(self->_adaptor.pixelBufferPool);
+            [self combineMovieAndAudio];
         }];
-        CVPixelBufferPoolRelease(self->_adaptor.pixelBufferPool);
-
-        [self combineMovieAndAudio];
     });
 }
 
@@ -245,35 +249,35 @@ static const int USE_MIC = 1;
         AVMutableComposition* composition = [AVMutableComposition composition];
         AVMutableCompositionTrack* compositionVideoTrack = [composition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
         NSError* error;
-        
+
         AVURLAsset* vAsset = [[AVURLAsset alloc] initWithURL:tempVideoURL options:nil];
         CMTimeRange range = CMTimeRangeMake(kCMTimeZero, vAsset.duration);
         AVAssetTrack* videoTrack = [vAsset tracksWithMediaType:AVMediaTypeVideo][0];
-        
+
         [compositionVideoTrack insertTimeRange:range ofTrack:videoTrack atTime:kCMTimeZero error:&error];
         AVMutableVideoCompositionInstruction* instruction = [AVMutableVideoCompositionInstruction videoCompositionInstruction];
         instruction.timeRange = range;
         AVMutableVideoCompositionLayerInstruction* layerInstruction = [AVMutableVideoCompositionLayerInstruction videoCompositionLayerInstructionWithAssetTrack:compositionVideoTrack];
-        
+
         AVURLAsset* sAsset = [[AVURLAsset alloc] initWithURL:tempAudioURL options:nil];
         AVAssetTrack* soundTrack = [sAsset tracksWithMediaType:AVMediaTypeAudio][0];
         AVMutableCompositionTrack* compositionSoundTrack = [composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
         [compositionSoundTrack insertTimeRange:range ofTrack:soundTrack atTime:kCMTimeZero error:&error];
-        
+
         CGSize videoSize = videoTrack.naturalSize;
         CGAffineTransform transform = videoTrack.preferredTransform;
         if (transform.a == 0 && transform.d == 0 && (transform.b == -1.0 || transform.b == 1.0) && (transform.c == -1.0 || transform.c == 1.0)) {
             videoSize = CGSizeMake(videoSize.height, videoSize.width);
         }
-        
+
         [layerInstruction setTransform:transform atTime:kCMTimeZero];
         instruction.layerInstructions = @[layerInstruction];
-        
+
         AVMutableVideoComposition* videoComposition = [AVMutableVideoComposition videoComposition];
         videoComposition.renderSize = videoSize;
         videoComposition.instructions = @[instruction];
         videoComposition.frameDuration = CMTimeMake(1, frameRate);
-        
+
         AVAssetExportSession* session = [[AVAssetExportSession alloc] initWithAsset:composition presetName:AVAssetExportPresetHighestQuality];
         session.outputURL = _outputURL;
         session.outputFileType = AVFileTypeQuickTimeMovie;
