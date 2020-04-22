@@ -20,8 +20,8 @@ static const int USE_MIC = 1;
 
 @property int frameCount;
 @property NSURL* outputURL;
-@property AVAssetWriter* videoWriter;
-@property AVAssetWriterInput* writerInput;
+@property AVAssetWriter* assetWriter;
+@property AVAssetWriterInput* videoInput;
 @property int movPixelWidth;
 @property int movPixelHeight;
 @property CGSize movieSize;
@@ -29,7 +29,9 @@ static const int USE_MIC = 1;
 @property dispatch_queue_t queue;
 @property CMTime lastUpdateTime;
 
-@property AVAudioRecorder* audioRecorder;
+@property AVCaptureSession* session;
+@property AVAssetWriterInput* audioInput;
+@property dispatch_queue_t audioBufferQueue;
 
 @end
 
@@ -51,7 +53,7 @@ static const int USE_MIC = 1;
     NSLog(@"startScreenRecord audio:%d", useAudio);
     _isRecording = true;
     [self clearFiles:path];
-    [self initVideoRecorderWithPath: path];
+    [self initVideoRecorderWithPath: path useAudio:useAudio];
 
     _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(saveFrameImage)];
     _displayLink.preferredFramesPerSecond = frameRate;
@@ -69,24 +71,6 @@ static const int USE_MIC = 1;
         NSLog(@"Error when enabling audio session : %@", [error localizedDescription]);
         return;
     }
-    if (useAudio == USE_MIC) {
-        [self startRecordMic];
-    }
-}
-
-- (void) startRecordMic {
-    NSDictionary* audioSettings = @{
-        AVFormatIDKey: @(kAudioFormatLinearPCM),
-        AVSampleRateKey: @(44100.0),
-        AVNumberOfChannelsKey: @(2),
-        AVEncoderAudioQualityKey: @(AVAudioQualityHigh),
-        AVLinearPCMIsBigEndianKey: @(NO),
-        AVLinearPCMIsFloatKey: @(NO),
-    };
-    _audioRecorder = [[AVAudioRecorder alloc] initWithURL:tempAudioURL settings:audioSettings error:nil];
-    [_audioRecorder prepareToRecord];
-    _audioRecorder.meteringEnabled = YES;
-    [_audioRecorder record];
 }
 
 - (void) stopRecord {
@@ -101,8 +85,8 @@ static const int USE_MIC = 1;
 }
 
 - (void) stopRecordMic {
-    if ([_audioRecorder isRecording]) {
-        [_audioRecorder stop];
+    if (_session.isRunning) {
+        [_session stopRunning];
     }
 }
 
@@ -127,33 +111,83 @@ static const int USE_MIC = 1;
     }
 }
 
-- (void) initVideoRecorderWithPath: (NSString*) path {
+- (void) initVideoRecorderWithPath: (NSString*) path useAudio:(int)useAudio{
     _frameCount = 0;
     _queue = dispatch_queue_create("makingMovie", DISPATCH_QUEUE_SERIAL);
     _outputURL = [NSURL fileURLWithPath:path];
 
-    _videoWriter = [AVAssetWriter assetWriterWithURL:tempVideoURL fileType:AVFileTypeQuickTimeMovie error:nil];
+    _assetWriter = [AVAssetWriter assetWriterWithURL:_outputURL fileType:AVFileTypeQuickTimeMovie error:nil];
+    
+    if (useAudio == USE_MIC) {
+        [self prepareAudioDevice];
+    }
+
     [self calcPixelSizeForMovie:_view.frame.size scale:_scale];
     NSDictionary* outputSetting = @{AVVideoCodecKey: AVVideoCodecTypeH264, AVVideoWidthKey: @(_movPixelWidth), AVVideoHeightKey: @(_movPixelHeight)};
-    _writerInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo outputSettings:outputSetting];
-    _writerInput.expectsMediaDataInRealTime = true;
-    [_videoWriter addInput:_writerInput];
-    _adaptor = [AVAssetWriterInputPixelBufferAdaptor assetWriterInputPixelBufferAdaptorWithAssetWriterInput:_writerInput sourcePixelBufferAttributes:@{
+    _videoInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo outputSettings:outputSetting];
+    _videoInput.expectsMediaDataInRealTime = true;
+    _adaptor = [AVAssetWriterInputPixelBufferAdaptor assetWriterInputPixelBufferAdaptorWithAssetWriterInput:_videoInput sourcePixelBufferAttributes:@{
         (__bridge_transfer NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32ARGB),
         (__bridge_transfer NSString *)kCVPixelBufferWidthKey: @(_movPixelWidth),
         (__bridge_transfer NSString *)kCVPixelBufferHeightKey: @(_movPixelHeight)
     }];
+
+    if ([_assetWriter canAddInput:_videoInput]) {
+        [_assetWriter addInput:_videoInput];
+    } else {
+        NSLog(@"An error occurred while adding video input");
+    }
+}
+
+- (void) prepareAudioDevice {
+    _audioBufferQueue = dispatch_queue_create("AudioBufferQueue", DISPATCH_QUEUE_SERIAL);
+
+    AVCaptureDevice* device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeAudio];
+    AVCaptureDeviceInput* audioDeviceInput = [[AVCaptureDeviceInput alloc] initWithDevice:device error:nil];
+    
+    AVCaptureAudioDataOutput* audioDataOutput = [[AVCaptureAudioDataOutput alloc] init];
+    [audioDataOutput setSampleBufferDelegate:self queue:_queue];
+
+    _session = [[AVCaptureSession alloc] init];
+    _session.sessionPreset = AVCaptureSessionPresetMedium;
+    _session.usesApplicationAudioSession = true;
+    _session.automaticallyConfiguresApplicationAudioSession = false;
+    
+    if ([_session canAddInput:audioDeviceInput]) {
+        [_session addInput:audioDeviceInput];
+    }
+    if ([_session canAddOutput:audioDataOutput]) {
+        [_session addOutput:audioDataOutput];
+    }
+    
+    NSDictionary* audioSettings = @{
+        AVFormatIDKey: @(kAudioFormatMPEG4AAC),
+        AVNumberOfChannelsKey: @(1),
+        AVSampleRateKey: @(44100.0),
+        AVEncoderBitRateKey: @(128000)
+    };
+    
+    _audioInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeAudio outputSettings:audioSettings];
+    _audioInput.expectsMediaDataInRealTime = true;
+
+    dispatch_async(_audioBufferQueue, ^{
+        [self->_session startRunning];
+    });
+    
+    if ([_assetWriter canAddInput:_audioInput]) {
+        [_assetWriter addInput:_audioInput];
+    }
 }
 
 - (void) saveFrameImage {
     @autoreleasepool {
         CMTime time = [self getTime];
         if (_frameCount == 0) {
-            if (_videoWriter != nil) {
-                if (!_videoWriter.startWriting) {
+            if (_assetWriter != nil) {
+                if (!_assetWriter.startWriting) {
                     NSLog(@"videoWriter startWriting is false");
                 }
-                [_videoWriter startSessionAtSourceTime:time];
+                [_assetWriter startSessionAtSourceTime:time];
                 NSLog(@"making movie is started");
             } else {
                 NSLog(@"videoWriter is nil");
@@ -230,74 +264,14 @@ static const int USE_MIC = 1;
 
 - (void) finishVideoWriting {
     dispatch_async(_queue, ^{
-        [self->_writerInput markAsFinished];
-        [self->_videoWriter endSessionAtSourceTime: self->_lastUpdateTime];
-        [self->_videoWriter finishWritingWithCompletionHandler:^{
+        [self->_videoInput markAsFinished];
+        [self->_assetWriter endSessionAtSourceTime: self->_lastUpdateTime];
+        [self->_assetWriter finishWritingWithCompletionHandler:^{
             NSLog(@"movie created count:%d", self->_frameCount);
             CVPixelBufferPoolRelease(self->_adaptor.pixelBufferPool);
-            [self combineMovieAndAudio];
-        }];
-    });
-}
-
-- (void) combineMovieAndAudio {
-    NSFileManager* fm = [NSFileManager defaultManager];
-    if ([fm fileExistsAtPath:tempAudioURL.path]) {
-        // combine
-        AVMutableComposition* composition = [AVMutableComposition composition];
-        AVMutableCompositionTrack* compositionVideoTrack = [composition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
-        NSError* error;
-
-        AVURLAsset* vAsset = [[AVURLAsset alloc] initWithURL:tempVideoURL options:nil];
-        CMTimeRange range = CMTimeRangeMake(kCMTimeZero, vAsset.duration);
-        AVAssetTrack* videoTrack = [vAsset tracksWithMediaType:AVMediaTypeVideo][0];
-
-        [compositionVideoTrack insertTimeRange:range ofTrack:videoTrack atTime:kCMTimeZero error:&error];
-        AVMutableVideoCompositionInstruction* instruction = [AVMutableVideoCompositionInstruction videoCompositionInstruction];
-        instruction.timeRange = range;
-        AVMutableVideoCompositionLayerInstruction* layerInstruction = [AVMutableVideoCompositionLayerInstruction videoCompositionLayerInstructionWithAssetTrack:compositionVideoTrack];
-
-        AVURLAsset* sAsset = [[AVURLAsset alloc] initWithURL:tempAudioURL options:nil];
-        AVAssetTrack* soundTrack = [sAsset tracksWithMediaType:AVMediaTypeAudio][0];
-        AVMutableCompositionTrack* compositionSoundTrack = [composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
-        [compositionSoundTrack insertTimeRange:range ofTrack:soundTrack atTime:kCMTimeZero error:&error];
-
-        CGSize videoSize = videoTrack.naturalSize;
-        CGAffineTransform transform = videoTrack.preferredTransform;
-        if (transform.a == 0 && transform.d == 0 && (transform.b == -1.0 || transform.b == 1.0) && (transform.c == -1.0 || transform.c == 1.0)) {
-            videoSize = CGSizeMake(videoSize.height, videoSize.width);
-        }
-
-        [layerInstruction setTransform:transform atTime:kCMTimeZero];
-        instruction.layerInstructions = @[layerInstruction];
-
-        AVMutableVideoComposition* videoComposition = [AVMutableVideoComposition videoComposition];
-        videoComposition.renderSize = videoSize;
-        videoComposition.instructions = @[instruction];
-        videoComposition.frameDuration = CMTimeMake(1, frameRate);
-
-        AVAssetExportSession* session = [[AVAssetExportSession alloc] initWithAsset:composition presetName:AVAssetExportPresetHighestQuality];
-        session.outputURL = _outputURL;
-        session.outputFileType = AVFileTypeQuickTimeMovie;
-        session.videoComposition = videoComposition;
-        [session exportAsynchronouslyWithCompletionHandler:^{
-            if (session.status == AVAssetExportSessionStatusCompleted) {
-                NSLog(@"combine complete");
-            } else {
-                NSLog(@"combine error %@", session.error);
-            }
-            // delete temporary files
-            [fm removeItemAtURL:tempAudioURL error:nil];
-            [fm removeItemAtURL:tempVideoURL error:nil];
-            
             [self registerVideoToGallery];
         }];
-    } else {
-        // lacked audio file, move movie
-        [fm moveItemAtURL:tempVideoURL toURL:_outputURL error:nil];
-        NSLog(@"move complete");
-        [self registerVideoToGallery];
-    }
+    });
 }
 
 - (void) registerVideoToGallery {
@@ -307,12 +281,25 @@ static const int USE_MIC = 1;
     } else {
         NSLog(@"failure saving to album");
     }
-    // todo notify method channel
 }
 
 - (CMTime) getTime {
     return CMTimeMakeWithSeconds(CACurrentMediaTime(), 1000000);
 }
+
+/* AVCaptureAudioDataOutputSampleBufferDelegate implements */
+- (void) captureOutput:(AVCaptureOutput *)output didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
+    if (_audioInput != nil) {
+        CFRetain(sampleBuffer);
+        dispatch_async(_audioBufferQueue, ^{
+            if (self->_audioInput.isReadyForMoreMediaData && self->_isRecording) {
+                [self->_audioInput appendSampleBuffer:sampleBuffer];
+                CFRelease(sampleBuffer);
+            }
+        });
+    }
+}
+
 
 @end
 

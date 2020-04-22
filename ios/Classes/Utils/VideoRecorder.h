@@ -10,7 +10,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface VideoRecorder : NSObject
+@interface VideoRecorder : NSObject<AVCaptureAudioDataOutputSampleBufferDelegate>
 
 @property SCNView* _Nonnull view;
 
