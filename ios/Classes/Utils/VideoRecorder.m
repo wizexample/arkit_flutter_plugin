@@ -19,7 +19,6 @@ static const int USE_MIC = 1;
 @property CADisplayLink* displayLink;
 
 @property int frameCount;
-@property double recStartTime;
 @property NSURL* outputURL;
 @property AVAssetWriter* videoWriter;
 @property AVAssetWriterInput* writerInput;
@@ -28,6 +27,7 @@ static const int USE_MIC = 1;
 @property CGSize movieSize;
 @property AVAssetWriterInputPixelBufferAdaptor* adaptor;
 @property dispatch_queue_t queue;
+@property CMTime lastUpdateTime;
 
 @property AVAudioRecorder* audioRecorder;
 
@@ -147,13 +147,13 @@ static const int USE_MIC = 1;
 
 - (void) saveFrameImage {
     @autoreleasepool {
+        CMTime time = [self getTime];
         if (_frameCount == 0) {
             if (_videoWriter != nil) {
                 if (!_videoWriter.startWriting) {
                     NSLog(@"videoWriter startWriting is false");
                 }
-                _recStartTime = [[NSDate date] timeIntervalSince1970];
-                [_videoWriter startSessionAtSourceTime:kCMTimeZero];
+                [_videoWriter startSessionAtSourceTime:time];
                 NSLog(@"making movie is started");
             } else {
                 NSLog(@"videoWriter is nil");
@@ -163,7 +163,7 @@ static const int USE_MIC = 1;
         UIImage* cropped = [img cropImage:_movieSize];
         dispatch_async(_queue, ^{
             @autoreleasepool {
-                [self appendImageToBuffer:cropped];
+                [self appendImageToBuffer:cropped time:time];
             }
         });
     }
@@ -178,16 +178,15 @@ static const int USE_MIC = 1;
     _movieSize = CGSizeMake(((CGFloat)_movPixelWidth), ((CGFloat)_movPixelHeight));
 }
 
-- (void) appendImageToBuffer:(UIImage*) image {
+- (void) appendImageToBuffer:(UIImage*) image time: (CMTime) time {
     if (_adaptor == nil) return;
     _frameCount ++;
-//    _frameCount = (int)(([[NSDate date] timeIntervalSince1970] - _recStartTime) / (1.0 / frameRate));
     if (!_adaptor.assetWriterInput.isReadyForMoreMediaData) return;
-    CMTime frameTime = CMTimeMake((int64_t)(_frameCount - 1), frameRate);
-//    CMTime frameTime = CMTimeMake((int64_t)(_frameCount), frameRate);
+    CMTime frameTime = time;
     CVPixelBufferRef buffer = [self pixelBufferFromCGImage:image.CGImage];
     [_adaptor appendPixelBuffer:buffer withPresentationTime:frameTime];
     CFRelease(buffer);
+    _lastUpdateTime = frameTime;
 }
 
 - (CVPixelBufferRef) pixelBufferFromCGImage:(CGImageRef) image {
@@ -232,8 +231,7 @@ static const int USE_MIC = 1;
 - (void) finishVideoWriting {
     dispatch_async(_queue, ^{
         [self->_writerInput markAsFinished];
-        [self->_videoWriter endSessionAtSourceTime:CMTimeMake((int64_t)(self->_frameCount - 1), frameRate)];
-//        [self->_videoWriter endSessionAtSourceTime:CMTimeMake((int64_t)(self->_frameCount), frameRate)];
+        [self->_videoWriter endSessionAtSourceTime: self->_lastUpdateTime];
         [self->_videoWriter finishWritingWithCompletionHandler:^{
             NSLog(@"movie created count:%d", self->_frameCount);
             CVPixelBufferPoolRelease(self->_adaptor.pixelBufferPool);
@@ -310,6 +308,10 @@ static const int USE_MIC = 1;
         NSLog(@"failure saving to album");
     }
     // todo notify method channel
+}
+
+- (CMTime) getTime {
+    return CMTimeMakeWithSeconds(CACurrentMediaTime(), 1000000);
 }
 
 @end
