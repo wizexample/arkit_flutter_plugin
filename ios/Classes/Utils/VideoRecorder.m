@@ -8,8 +8,6 @@
 #import "VideoRecorder.h"
 
 static const int frameRate = 30;
-static NSURL* tempVideoURL;
-static NSURL* tempAudioURL;
 static const int USE_MIC = 1;
 
 @interface VideoRecorder()
@@ -41,8 +39,6 @@ static const int USE_MIC = 1;
     if (self = [super init]) {
         _view = view;
         _scale = UIScreen.mainScreen.scale;
-        tempVideoURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingString:@"tempVideo.mp4"]];
-        tempAudioURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingString:@"tempAudio.caf"]];
     }
     return self;
 }
@@ -102,12 +98,6 @@ static const int USE_MIC = 1;
     NSFileManager* fm = [NSFileManager defaultManager];
     if ([fm fileExistsAtPath:path]) {
         [fm removeItemAtPath:path error:nil];
-    }
-    if ([fm fileExistsAtPath:path]) {
-        [fm removeItemAtURL:tempAudioURL error:nil];
-    }
-    if ([fm fileExistsAtPath:path]) {
-        [fm removeItemAtURL:tempVideoURL error:nil];
     }
 }
 
