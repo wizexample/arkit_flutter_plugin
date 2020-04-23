@@ -166,6 +166,7 @@ class ARKitController {
   ARKitPinchGestureHandler onNodePinch;
   ARKitPanResultHandler onNodePan;
   Function(bool) onNurieMarkerModeChanged;
+  Function(bool) onRecStatusChanged;
 
   /// Called when a new node has been mapped to the given anchor.
   AnchorEventHandler onAddNodeForAnchor;
@@ -406,6 +407,11 @@ class ARKitController {
       case 'nurieMarkerModeChanged':
         if (onNurieMarkerModeChanged != null) {
           onNurieMarkerModeChanged(call.arguments['isStart']);
+        }
+        break;
+      case 'onRecStatusChanged':
+        if (onRecStatusChanged != null) {
+          onRecStatusChanged(call.arguments['isRecording']);
         }
         break;
       default:

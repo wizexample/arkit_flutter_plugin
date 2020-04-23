@@ -67,6 +67,9 @@ static const int USE_MIC = 1;
         NSLog(@"Error when enabling audio session : %@", [error localizedDescription]);
         return;
     }
+    if (_delegate != nil) {
+        [_delegate recStateChanged:true];
+    }
 }
 
 - (void) stopRecord {
@@ -76,8 +79,10 @@ static const int USE_MIC = 1;
     [_displayLink removeFromRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
 
     [self stopRecordMic];
-
     [self finishVideoWriting];
+    if (_delegate != nil) {
+        [_delegate recStateChanged:false];
+    }
 }
 
 - (void) stopRecordMic {

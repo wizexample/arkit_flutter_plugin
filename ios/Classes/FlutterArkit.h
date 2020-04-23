@@ -2,8 +2,10 @@
 @import ARKit;
 @import SceneKit;
 
+#import "VideoRecorder.h"
+
 API_AVAILABLE(ios(11.3))
-@interface FlutterArkitController : NSObject <FlutterPlatformView>
+@interface FlutterArkitController : NSObject <FlutterPlatformView, VideoRecorderDelegate>
 
 - (nonnull instancetype)initWithWithFrame:(CGRect)frame
                            viewIdentifier:(int64_t)viewId

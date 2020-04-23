@@ -48,6 +48,20 @@
 @property (readwrite) ARConfiguration *configuration;
 @property BOOL forceUserTapOnCenter;
 @property (strong, nonatomic) CIContext* ciContext;
+
+@property SCNNode* objectsParent;
+
+@property int viewWidth;
+@property int viewHeight;
+
+@property BOOL nurieFindingMode;
+@property NSMutableDictionary* nurieParams;
+
+@property VideoRecorder* videoRecorder;
+
+@property ARHitTestResult* lastTappedPlane;
+
+
 @end
 
 @implementation FlutterArkitController
@@ -55,18 +69,11 @@
 static const NSString* REFERENCE_CHILD_NODE = @"REFERENCE_CHILD_NODE";
 
 static NSMutableSet *g_mSet = NULL;
-SCNNode* objectsParent;
 
-NSMutableDictionary *nurieParams = nil;
-BOOL nurieFindingMode = false;
 float prevMarkerCorners[] = {0,0,0,0,0,0,0,0};
 int counterMarkerCorners = 0;
 const int checkMarkerCorners = 8;
 const int thresholdMarkerCorners = 5;
-int viewWidth;
-int viewHeight;
-ARHitTestResult* lastTappedPlane;
-VideoRecorder* videoRecorder;
 
 - (instancetype)initWithWithFrame:(CGRect)frame
                    viewIdentifier:(int64_t)viewId
@@ -75,7 +82,9 @@ VideoRecorder* videoRecorder;
     if ([super init]) {
         _viewId = viewId;
         _sceneView = [[ARSCNView alloc] initWithFrame:frame];
-        videoRecorder = [[VideoRecorder alloc] initWithView:_sceneView];
+
+        _videoRecorder = [[VideoRecorder alloc] initWithView:_sceneView];
+        _videoRecorder.delegate = self;
 
         NSString* channelName = [NSString stringWithFormat:@"arkit", viewId];
         NSLog(@"####### channelName=%@", channelName);
@@ -87,11 +96,44 @@ VideoRecorder* videoRecorder;
         self.delegate = [[SceneViewDelegate alloc] initWithChannel: _channel controller:self];
         _sceneView.delegate = self.delegate;
 
-        objectsParent = [[SCNNode alloc] init];
-        objectsParent.name = @"objectsParent";
-        [_sceneView.scene.rootNode addChildNode:objectsParent];
+        _objectsParent = [[SCNNode alloc] init];
+        _objectsParent.name = @"objectsParent";
+        [_sceneView.scene.rootNode addChildNode:_objectsParent];
+        
+        [self setupLifeCycle];
     }
     return self;
+}
+
+- (void) setupLifeCycle {
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillEnterForeground) name:UIApplicationWillEnterForegroundNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationDidBecomeActive) name:UIApplicationDidBecomeActiveNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillResignActive) name:UIApplicationWillResignActiveNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationDidEnterBackground) name:UIApplicationDidEnterBackgroundNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillTerminate) name:UIApplicationWillTerminateNotification object:nil];
+}
+
+- (void)applicationWillEnterForeground {
+    NSLog(@"applicationWillEnterForeground");
+}
+
+- (void)applicationDidBecomeActive {
+    NSLog(@"applicationDidBecomeActive");
+}
+
+- (void)applicationWillResignActive {
+    NSLog(@"applicationWillResignActive");
+    [_videoRecorder stopRecord];
+}
+
+- (void)applicationDidEnterBackground {
+    NSLog(@"applicationDidEnterBackground");
+    [_videoRecorder stopRecord];
+}
+
+- (void)applicationWillTerminate {
+    NSLog(@"applicationWillTerminate");
+    [_videoRecorder stopRecord];
 }
 
 - (UIView*)view {
@@ -166,7 +208,6 @@ VideoRecorder* videoRecorder;
   }
 }
 
-
 // - (void)init:(FlutterMethodCall*)call result:(FlutterResult)result {
 //     NSNumber* showStatistics = call.arguments[@"showStatistics"];
 //     self.sceneView.showsStatistics = [showStatistics boolValue];
@@ -204,8 +245,8 @@ VideoRecorder* videoRecorder;
 // }
 
 - (void)initStartWorldTrackingSessionWithImage:(FlutterMethodCall*)call result:(FlutterResult)result {
-    viewWidth = _sceneView.bounds.size.width;
-    viewHeight = _sceneView.bounds.size.height;
+    _viewWidth = _sceneView.bounds.size.width;
+    _viewHeight = _sceneView.bounds.size.height;
     NSNumber* showStatistics = call.arguments[@"showStatistics"];
     self.sceneView.showsStatistics = [showStatistics boolValue];
   
@@ -245,7 +286,7 @@ VideoRecorder* videoRecorder;
 
     // [self.sceneView.session runWithConfiguration:[self configuration]];
     g_mSet = [[NSMutableSet alloc ]init];
-    nurieParams =  [NSMutableDictionary dictionary];
+    _nurieParams =  [NSMutableDictionary dictionary];
 
     result(nil);
 }
@@ -287,7 +328,7 @@ VideoRecorder* videoRecorder;
     NSNumber* markerSizeMeterNSNumber = call.arguments[@"markerSizeMeter"];
     double markerSizeMeter = [markerSizeMeterNSNumber doubleValue];
     
-    nurieParams[imageName] = [[NurieParams alloc] initWithName:imageName];
+    _nurieParams[imageName] = [[NurieParams alloc] initWithName:imageName];
 
     CGImageRef cgImage = [uiimage CGImage];
     
@@ -386,7 +427,7 @@ VideoRecorder* videoRecorder;
 
 - (void)onRemoveNode:(FlutterMethodCall*)call result:(FlutterResult)result {
     NSString* nodeName = call.arguments[@"nodeName"];
-    SCNNode* node = [objectsParent childNodeWithName:nodeName recursively:YES];
+    SCNNode* node = [_objectsParent childNodeWithName:nodeName recursively:YES];
     [node removeFromParentNode];
     result(nil);
 }
@@ -463,7 +504,7 @@ VideoRecorder* videoRecorder;
         }
         [_channel invokeMethod: @"onPlaneTap" arguments: results];
     }
-    lastTappedPlane = tapped;
+    _lastTappedPlane = tapped;
 }
 
 - (void) handlePinchFrom: (UIPinchGestureRecognizer *) recognizer
@@ -578,35 +619,35 @@ VideoRecorder* videoRecorder;
 #pragma mark - Parameters
 - (void) updatePosition:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
+    SCNNode* node = [_objectsParent childNodeWithName:name recursively:YES];
     node.position = [DecodableUtils parseVector3:call.arguments];
     result(nil);
 }
 
 - (void) updateRotation:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
+    SCNNode* node = [_objectsParent childNodeWithName:name recursively:YES];
     node.rotation = [DecodableUtils parseVector4:call.arguments];
     result(nil);
 }
 
 - (void) updateEulerAngles:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
+    SCNNode* node = [_objectsParent childNodeWithName:name recursively:YES];
     node.eulerAngles = [DecodableUtils parseVector3:call.arguments];
     result(nil);
 }
 
 - (void) updateScale:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
+    SCNNode* node = [_objectsParent childNodeWithName:name recursively:YES];
     node.scale = [DecodableUtils parseVector3:call.arguments];
     result(nil);
 }
 
 - (void) updateIsHidden:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
+    SCNNode* node = [_objectsParent childNodeWithName:name recursively:YES];
 
     if ([call.arguments[@"isHidden"] boolValue]) {
         node.hidden = YES;
@@ -621,7 +662,7 @@ VideoRecorder* videoRecorder;
 
 - (void) updateIsPlay:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
+    SCNNode* node = [_objectsParent childNodeWithName:name recursively:YES];
 
     NSLog(@"###### node.geometry.contents=%@", node.geometry.firstMaterial.diffuse.contents );
     if([node.geometry.firstMaterial.diffuse.contents isMemberOfClass:[SKScene class]]){
@@ -648,7 +689,7 @@ VideoRecorder* videoRecorder;
 
 - (void) updateSingleProperty:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
+    SCNNode* node = [_objectsParent childNodeWithName:name recursively:YES];
     
     NSString* keyProperty = call.arguments[@"keyProperty"];
     id object = [node valueForKey:keyProperty];
@@ -659,7 +700,7 @@ VideoRecorder* videoRecorder;
 
 - (void) updateMaterials:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
-    SCNNode* node = [objectsParent childNodeWithName:name recursively:YES];
+    SCNNode* node = [_objectsParent childNodeWithName:name recursively:YES];
     SCNGeometry* geometry = [GeometryBuilder createGeometry:call.arguments withDevice: _sceneView.device];
     node.geometry = geometry;
     result(nil);
@@ -713,7 +754,7 @@ VideoRecorder* videoRecorder;
     NSString* sceneName = call.arguments[@"sceneName"];
     NSString* animationIdentifier = call.arguments[@"animationIdentifier"];
     NSString* nodeName = call.arguments[@"nodeName"];
-    SCNNode* node = [objectsParent childNodeWithName:nodeName recursively:YES];
+    SCNNode* node = [_objectsParent childNodeWithName:nodeName recursively:YES];
     float repeatCount = [call.arguments[@"repeatCount"] floatValue];
     if (repeatCount < 0) {
         repeatCount = HUGE_VALF;
@@ -736,7 +777,7 @@ VideoRecorder* videoRecorder;
 - (void) onStopAnimation:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* key = call.arguments[@"key"];
     NSString* nodeName = call.arguments[@"nodeName"];
-    SCNNode* node = [objectsParent childNodeWithName:nodeName recursively:YES];
+    SCNNode* node = [_objectsParent childNodeWithName:nodeName recursively:YES];
     [node removeAnimationForKey:key blendOutDuration:0.5];
     result(nil);
 }
@@ -752,7 +793,7 @@ VideoRecorder* videoRecorder;
     NSString* path = call.arguments[@"path"];
     NSNumber* useAudio = call.arguments[@"useAudio"];
     if (path != nil) {
-        [videoRecorder toggleRecord: path useAudio:[useAudio intValue]];
+        [_videoRecorder toggleRecord: path useAudio:[useAudio intValue]];
     }
     result(nil);
 }
@@ -761,13 +802,13 @@ VideoRecorder* videoRecorder;
     NSString* path = call.arguments[@"path"];
     NSNumber* useAudio = call.arguments[@"useAudio"];
     if (path != nil) {
-        [videoRecorder startRecord: path useAudio:[useAudio intValue]];
+        [_videoRecorder startRecord: path useAudio:[useAudio intValue]];
     }
     result(nil);
 }
 
 - (void)stopScreenRecord:(FlutterMethodCall*)call andResult:(FlutterResult)result {
-    [videoRecorder stopRecord];
+    [_videoRecorder stopRecord];
     result(nil);
 }
 
@@ -784,7 +825,7 @@ VideoRecorder* videoRecorder;
     if ([anchor isMemberOfClass:[ARImageAnchor class]]) {
         ARImageAnchor *image = (ARImageAnchor*)anchor;
         NSString* imageName = image.referenceImage.name;
-        if ([nurieParams.allKeys containsObject:imageName]) {
+        if ([_nurieParams.allKeys containsObject:imageName]) {
             return true;
         }
     }
@@ -792,11 +833,11 @@ VideoRecorder* videoRecorder;
 }
 
 - (BOOL)checkMarkerNurie:(ARAnchor*) anchor node:(SCNNode *)node {
-    if (nurieFindingMode && [anchor isMemberOfClass:[ARImageAnchor class]]) {
+    if (_nurieFindingMode && [anchor isMemberOfClass:[ARImageAnchor class]]) {
         ARImageAnchor *image = (ARImageAnchor*)anchor;
         NSString* imageName = image.referenceImage.name;
-        if ([nurieParams.allKeys containsObject:imageName]) {
-            NurieParams* nurie = nurieParams[imageName];
+        if ([_nurieParams.allKeys containsObject:imageName]) {
+            NurieParams* nurie = _nurieParams[imageName];
             SCNNode* cameraNode = _sceneView.pointOfView;
             float hw = image.referenceImage.physicalSize.width / 2;
             float hh = image.referenceImage.physicalSize.height / 2;
@@ -806,7 +847,7 @@ VideoRecorder* videoRecorder;
             SCNVector3 br = [self getScreenPoint:cameraNode pose:node x:hw z:hh];
             SCNVector3 arr[] = {ul, ur, bl, br};
 
-            if ([self validMarkerCorners:viewWidth height:viewHeight corners:arr]) {
+            if ([self validMarkerCorners:_viewWidth height:_viewHeight corners:arr]) {
                 @autoreleasepool {
                     nurie.image = nil;
                     UIImage* input = [_sceneView snapshot];
@@ -848,8 +889,8 @@ VideoRecorder* videoRecorder;
     NSString* nurieStr = call.arguments[@"nurie"];
     NSString* nodeName = call.arguments[@"nodeName"];
     if (nurieStr != nil) {
-        NurieParams* nurieParam = nurieParams[nurieStr];
-        SCNNode* node = [objectsParent childNodeWithName:nodeName recursively:YES];
+        NurieParams* nurieParam = _nurieParams[nurieStr];
+        SCNNode* node = [_objectsParent childNodeWithName:nodeName recursively:YES];
         if (nurieParam != nil && nurieParam.image != nil && node != nil) {
             UIImage* texture = nurieParam.image;
             [self setTexture:node texture:texture];
@@ -874,24 +915,24 @@ VideoRecorder* videoRecorder;
 }
 
 - (void) startFindingNurieMarker:(BOOL)isStart {
-    if (nurieFindingMode != isStart) {
-        nurieFindingMode = isStart;
+    if (_nurieFindingMode != isStart) {
+        _nurieFindingMode = isStart;
         NSDictionary* results = @{@"isStart" : @(isStart)};
         [_channel invokeMethod: @"nurieMarkerModeChanged" arguments: results];
-        [objectsParent setHidden:isStart];
+        [_objectsParent setHidden:isStart];
     }
 }
 
 - (void) addTransformableNode:(FlutterMethodCall*)call result:(FlutterResult)result {
     // need plane detection
-    if (lastTappedPlane == nil) return;
+    if (_lastTappedPlane == nil) return;
     NSString* transformName = call.arguments[@"transformName"];
     NSDictionary* params = call.arguments[@"node"];
     if (transformName == nil || params == nil) return;
     SCNGeometry* geometry = [GeometryBuilder createGeometry:params[@"geometry"] withDevice: _sceneView.device];
-    TransformableNode* transformableNode = [[TransformableNode alloc] initWithPlane:lastTappedPlane];
+    TransformableNode* transformableNode = [[TransformableNode alloc] initWithPlane:_lastTappedPlane];
     transformableNode.name = transformName;
-    [objectsParent addChildNode:transformableNode];
+    [_objectsParent addChildNode:transformableNode];
     SCNNode* childNode = [self getNodeWithGeometry:geometry fromDict:params];
     [transformableNode addChildNode:childNode];
 }
@@ -1085,10 +1126,10 @@ VideoRecorder* videoRecorder;
 - (void) addNodeToSceneWithGeometry:(SCNGeometry*)geometry andCall: (FlutterMethodCall*)call andResult:(FlutterResult)result{
     SCNNode* node = [self getNodeWithGeometry:geometry fromDict:call.arguments];
     if (call.arguments[@"parentNodeName"] != nil) {
-        SCNNode *parentNode = [objectsParent childNodeWithName:call.arguments[@"parentNodeName"] recursively:YES];
+        SCNNode *parentNode = [_objectsParent childNodeWithName:call.arguments[@"parentNodeName"] recursively:YES];
         [parentNode addChildNode:node];
     } else {
-        [objectsParent addChildNode:node];
+        [_objectsParent addChildNode:node];
     }
     result(nil);
 }
@@ -1140,6 +1181,10 @@ VideoRecorder* videoRecorder;
         NSLog(@"**** [%d] %@ - %@", level, name, [child class]);
         [self debugNodeTree:child level:level + 1];
     }
+}
+
+- (void) recStateChanged:(BOOL)isRecording {
+    [_channel invokeMethod: @"onRecStatusChanged" arguments: @{@"isRecording": @(isRecording)}];
 }
 
 @end

@@ -10,9 +10,17 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@protocol VideoRecorderDelegate <NSObject>
+
+- (void)recStateChanged:(BOOL)isRecording;
+
+@end
+
+
 @interface VideoRecorder : NSObject<AVCaptureAudioDataOutputSampleBufferDelegate>
 
 @property SCNView* _Nonnull view;
+@property NSObject<VideoRecorderDelegate>* delegate;
 
 - (nonnull instancetype)initWithView:(nonnull SCNView*)view;
 
@@ -33,5 +41,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (UIImage*)cropImage:(CGSize) croppedSize;
 
 @end
+
 
 NS_ASSUME_NONNULL_END
