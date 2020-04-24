@@ -27,9 +27,14 @@ API_AVAILABLE(ios(11.3))
 
 @interface NurieParams: NSObject
 
-- (nonnull id) initWithName:(nonnull NSString*)name;
+- (nonnull id) initWithName:(nonnull NSString*)name w:(float)w h:(float)h x:(float)x y:(float)y;
 
 @property (readonly) NSString* _Nonnull name;
+@property (readonly) float widthScale;
+@property (readonly) float heightScale;
+@property (readonly) float xOffset;
+@property (readonly) float yOffset;
+
 @property UIImage* _Nullable image;
 
 @end

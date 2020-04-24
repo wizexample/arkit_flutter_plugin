@@ -56,6 +56,8 @@
 
 @property BOOL nurieFindingMode;
 @property NSMutableDictionary* nurieParams;
+@property NSDate* markerGazeStartTime;
+@property NurieParams* targetNurieMarker;
 
 @property VideoRecorder* videoRecorder;
 
@@ -71,8 +73,7 @@ static const NSString* REFERENCE_CHILD_NODE = @"REFERENCE_CHILD_NODE";
 static NSMutableSet *g_mSet = NULL;
 
 float prevMarkerCorners[] = {0,0,0,0,0,0,0,0};
-int counterMarkerCorners = 0;
-const int checkMarkerCorners = 8;
+const float markerGazingDuration = 250.0 / 1000.0;
 const int thresholdMarkerCorners = 5;
 
 - (instancetype)initWithWithFrame:(CGRect)frame
@@ -327,8 +328,12 @@ const int thresholdMarkerCorners = 5;
     NSString* imageName = call.arguments[@"imageName"];
     NSNumber* markerSizeMeterNSNumber = call.arguments[@"markerSizeMeter"];
     double markerSizeMeter = [markerSizeMeterNSNumber doubleValue];
+    NSNumber* widthScale = (call.arguments[@"widthScale"] != nil) ? call.arguments[@"widthScale"]: [NSNumber numberWithFloat:1.0f];
+    NSNumber* heightScale = (call.arguments[@"heightScale"] != nil) ? call.arguments[@"heightScale"]: [NSNumber numberWithFloat:1.0f];
+    NSNumber* xOffset = (call.arguments[@"xOffset"] != nil) ? call.arguments[@"xOffset"]: [NSNumber numberWithFloat:0.0f];
+    NSNumber* yOffset = (call.arguments[@"yOffset"] != nil) ? call.arguments[@"yOffset"]: [NSNumber numberWithFloat:0.0f];
     
-    _nurieParams[imageName] = [[NurieParams alloc] initWithName:imageName];
+    _nurieParams[imageName] = [[NurieParams alloc] initWithName:imageName w:widthScale.floatValue h:heightScale.floatValue x:xOffset.floatValue y:yOffset.floatValue];
 
     CGImageRef cgImage = [uiimage CGImage];
     
@@ -836,15 +841,19 @@ const int thresholdMarkerCorners = 5;
     if (_nurieFindingMode && [anchor isMemberOfClass:[ARImageAnchor class]]) {
         ARImageAnchor *image = (ARImageAnchor*)anchor;
         NSString* imageName = image.referenceImage.name;
-        if ([_nurieParams.allKeys containsObject:imageName]) {
+        if ((_targetNurieMarker == nil || [_targetNurieMarker.name isEqualToString:imageName]) && [_nurieParams.allKeys containsObject:imageName]) {
             NurieParams* nurie = _nurieParams[imageName];
             SCNNode* cameraNode = _sceneView.pointOfView;
-            float hw = image.referenceImage.physicalSize.width / 2;
-            float hh = image.referenceImage.physicalSize.height / 2;
-            SCNVector3 ul = [self getScreenPoint:cameraNode pose:node x:-hw z:-hh];
-            SCNVector3 ur = [self getScreenPoint:cameraNode pose:node x:hw z:-hh];
-            SCNVector3 bl = [self getScreenPoint:cameraNode pose:node x:-hw z:hh];
-            SCNVector3 br = [self getScreenPoint:cameraNode pose:node x:hw z:hh];
+            
+            float halfTextureWidth = image.referenceImage.physicalSize.width * nurie.widthScale / 2;
+            float halfTextureHeight = image.referenceImage.physicalSize.height * nurie.heightScale / 2;
+            float moveX = image.referenceImage.physicalSize.width * nurie.xOffset;
+            float moveY = -image.referenceImage.physicalSize.height * nurie.yOffset;
+            
+            SCNVector3 ul = [self getScreenPoint:cameraNode pose:node x:-halfTextureWidth + moveX z:-halfTextureHeight + moveY];
+            SCNVector3 ur = [self getScreenPoint:cameraNode pose:node x:halfTextureWidth + moveX z:-halfTextureHeight + moveY];
+            SCNVector3 bl = [self getScreenPoint:cameraNode pose:node x:-halfTextureWidth + moveX z:halfTextureHeight + moveY];
+            SCNVector3 br = [self getScreenPoint:cameraNode pose:node x:halfTextureWidth + moveX z:halfTextureHeight + moveY];
             SCNVector3 arr[] = {ul, ur, bl, br};
 
             if ([self validMarkerCorners:_viewWidth height:_viewHeight corners:arr]) {
@@ -853,6 +862,7 @@ const int thresholdMarkerCorners = 5;
                     UIImage* input = [_sceneView snapshot];
                     UIImage *uiImage = [self affine:input ul:ul ur:ur bl:bl br:br];
                     nurie.image = uiImage;
+                    [_objectsParent setHidden:false];
                     [self startFindingNurieMarker:false];
                     NSLog(@"**** captured");
                 }
@@ -872,15 +882,23 @@ const int thresholdMarkerCorners = 5;
         if (succeed && corner.x < 0 || corner.x > width || corner.y < 0 || corner.y > height ||
             abs(corner.x - prevX) > thresholdMarkerCorners || abs(corner.y - prevY) > thresholdMarkerCorners) {
             succeed = false;
-            counterMarkerCorners = -1;
+            _markerGazeStartTime = 0;
         }
     
         prevMarkerCorners[i * 2] = corner.x;
         prevMarkerCorners[i * 2 + 1] = corner.y;
     }
-    if (++ counterMarkerCorners >= checkMarkerCorners) {
-        counterMarkerCorners = 0;
-        return true;
+    if (succeed) {
+        if (_markerGazeStartTime == 0) {
+            _markerGazeStartTime = [NSDate now];
+            [_objectsParent setHidden:true];
+        } else if ([_markerGazeStartTime timeIntervalSinceNow] <= -markerGazingDuration) {
+            _markerGazeStartTime = 0;
+            return true;
+        } else {
+        }
+    } else {
+        [_objectsParent setHidden:false];
     }
     return false;
 }
@@ -910,6 +928,12 @@ const int thresholdMarkerCorners = 5;
 
 - (void) findNurieMarker:(FlutterMethodCall*)call result:(FlutterResult)result {
     BOOL isStart = call.arguments[@"isStart"];
+    NSString* name = call.arguments[@"nurie"];
+    if (name != nil) {
+        _targetNurieMarker = [_nurieParams objectForKey:name];
+    } else {
+        _targetNurieMarker = nil;
+    }
     [self startFindingNurieMarker:isStart];
     result(nil);
 }
@@ -917,9 +941,7 @@ const int thresholdMarkerCorners = 5;
 - (void) startFindingNurieMarker:(BOOL)isStart {
     if (_nurieFindingMode != isStart) {
         _nurieFindingMode = isStart;
-        NSDictionary* results = @{@"isStart" : @(isStart)};
-        [_channel invokeMethod: @"nurieMarkerModeChanged" arguments: results];
-        [_objectsParent setHidden:isStart];
+        [_channel invokeMethod: @"nurieMarkerModeChanged" arguments: @{@"isStart" : @(isStart)}];
     }
 }
 
@@ -1191,9 +1213,13 @@ const int thresholdMarkerCorners = 5;
 
 @implementation NurieParams
 
-- (id) initWithName:(NSString *)name {
+- (id) initWithName:(NSString *)name w:(float)w h:(float)h x:(float)x y:(float)y {
     if (self = [super init]) {
         _name = name;
+        _widthScale = w;
+        _heightScale = h;
+        _xOffset = x;
+        _yOffset = y;
     }
     return self;
 }

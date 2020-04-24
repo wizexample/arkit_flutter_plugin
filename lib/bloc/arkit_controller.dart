@@ -296,6 +296,8 @@ class ARKitController {
     int lengthInBytes,
     Uint8List bytes,
     String filePath,
+    Vector2 scale,
+    Vector2 offset,
   }) {
     bool paramsSatisfied = false;
     Map map = {
@@ -311,14 +313,26 @@ class ARKitController {
       map['filePath'] = filePath;
       paramsSatisfied = true;
     }
+    if (scale != null) {
+      map['widthScale'] = scale.x;
+      map['heightScale'] = scale.y;
+    }
+    if (offset != null) {
+      map['xOffset'] = offset.x;
+      map['yOffset'] = offset.y;
+    }
 
     if (paramsSatisfied) {
       _channel.invokeMethod<void>('addNurie', map);
     }
   }
 
-  void findNurieMarker(bool isStart) {
-    _channel.invokeMethod<void>('findNurieMarker', {'isStart': isStart});
+  void findNurieMarker(
+    bool isStart, {
+    String nurie,
+  }) {
+    _channel.invokeMethod<void>(
+        'findNurieMarker', {'isStart': isStart, 'nurie': nurie});
   }
 
   void applyNurieTexture(String nodeName, String nurie) {
