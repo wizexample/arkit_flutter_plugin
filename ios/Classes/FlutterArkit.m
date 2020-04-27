@@ -489,6 +489,7 @@ const int thresholdMarkerCorners = 5;
             }
         }
     }
+    [TransformableNode clearSelected];
 
     NSArray<ARHitTestResult *> *arHitResults = [sceneView hitTest:touchLocation types: 0
 //                                                + ARHitTestResultTypeFeaturePoint
@@ -549,43 +550,60 @@ const int thresholdMarkerCorners = 5;
     if (![recognizer.view isKindOfClass:[ARSCNView class]])
         return;
     
-    if (recognizer.state == UIGestureRecognizerStateChanged) {
+    if (recognizer.state == UIGestureRecognizerStateBegan) {
+        ARSCNView* sceneView = (ARSCNView *)recognizer.view;
+        CGPoint touchLocation = [recognizer locationInView:sceneView];
+        NSArray<SCNHitTestResult *> * hitResults = [sceneView hitTest:touchLocation options:@{}];
+        TransformableNode* target;
+        for (SCNHitTestResult* r in hitResults) {
+            SCNNode* node = [self getParentIfReferenceChild: r.node];
+            if ([node isKindOfClass:[TransformableNode class]]) {
+                target = (TransformableNode*)node;
+                break;
+            } else if ([node.parentNode isKindOfClass:[TransformableNode class]]) {
+                target = (TransformableNode*)node.parentNode;
+                break;
+            }
+        }
+        if (target != nil) {
+            [TransformableNode setSelectedNode:target];
+            target.hasControlPriority = true;
+        }
+    } else if (recognizer.state == UIGestureRecognizerStateChanged) {
         ARSCNView* sceneView = (ARSCNView *)recognizer.view;
         CGPoint touchLocation = [recognizer locationInView:sceneView];
         CGPoint translation = [recognizer translationInView:sceneView];
         NSArray<SCNHitTestResult *> * hitResults = [sceneView hitTest:touchLocation options:@{}];
         
         NSMutableArray<NSDictionary*>* results = [NSMutableArray arrayWithCapacity:[hitResults count]];
-        for (SCNHitTestResult* r in hitResults) {
-            SCNNode *node = [self getParentIfReferenceChild: r.node];
-            if (node.name != nil) {
-                [results addObject:@{@"name" : node.name, @"x" : @(translation.x), @"y":@(translation.y)}];
-                SCNNode* target = nil;
-                if ([node isKindOfClass:[TransformableNode class]]) {
-                    target = node;
-                } else if ([node.parentNode isKindOfClass:[TransformableNode class]]) {
-                    target = node.parentNode;
+        TransformableNode* selected = TransformableNode.selectedNode;
+        if (selected != nil && selected.hasControlPriority) {
+            [results addObject:@{@"name" : selected.childNodes.firstObject.name, @"x" : @(translation.x), @"y":@(translation.y)}];
+            NSArray<ARHitTestResult *> *arHitResults = [sceneView hitTest:touchLocation types: 0
+                                                        + ARHitTestResultTypeExistingPlaneUsingExtent
+                                                        + ARHitTestResultTypeExistingPlaneUsingGeometry
+                                                        ];
+            if ([arHitResults count] != 0) {
+                for (ARHitTestResult* r in arHitResults) {
+                    simd_float4 pos = r.worldTransform.columns[3];
+                    selected.position = SCNVector3Make(pos.x, pos.y, pos.z);
+                    break;
                 }
-                if (target != nil) {
-                    [TransformableNode setSelectedNode:target];
-                    NSArray<ARHitTestResult *> *arHitResults = [sceneView hitTest:touchLocation types: 0
-                                                                + ARHitTestResultTypeExistingPlaneUsingExtent
-                                                                + ARHitTestResultTypeExistingPlaneUsingGeometry
-                                                                ];
-                    if ([arHitResults count] != 0) {
-                        for (ARHitTestResult* r in arHitResults) {
-                            simd_float4 pos = r.worldTransform.columns[3];
-                            target.position = SCNVector3Make(pos.x, pos.y, pos.z);
-                            break;
-                        }
-                    }
+            }
+        } else {
+            for (SCNHitTestResult* r in hitResults) {
+                SCNNode *node = [self getParentIfReferenceChild: r.node];
+                if (node.name != nil) {
+                    [results addObject:@{@"name" : node.name, @"x" : @(translation.x), @"y":@(translation.y)}];
+                    break;
                 }
-                break;
             }
         }
         if ([results count] != 0) {
             [_channel invokeMethod: @"onNodePan" arguments: results];
         }
+    } else {
+        [TransformableNode selectedNode].hasControlPriority = false;
     }
 }
 
@@ -607,7 +625,7 @@ const int thresholdMarkerCorners = 5;
             TransformableNode* node = [TransformableNode selectedNode];
             [results addObject:@{@"name" : node.name, @"rotation" : @(rotation)}];
         } else {
-        for (SCNHitTestResult* r in hitResults) {
+            for (SCNHitTestResult* r in hitResults) {
                 SCNNode *node = [self getParentIfReferenceChild: r.node];
                 if (node.name != nil) {
                     [results addObject:@{@"name" : node.name, @"rotation" : @(rotation)}];
@@ -952,11 +970,10 @@ const int thresholdMarkerCorners = 5;
     NSDictionary* params = call.arguments[@"node"];
     if (transformName == nil || params == nil) return;
     SCNGeometry* geometry = [GeometryBuilder createGeometry:params[@"geometry"] withDevice: _sceneView.device];
-    TransformableNode* transformableNode = [[TransformableNode alloc] initWithPlane:_lastTappedPlane];
+    SCNNode* childNode = [self getNodeWithGeometry:geometry fromDict:params];
+    TransformableNode* transformableNode = [[TransformableNode alloc] initWithPlane:_lastTappedPlane node:childNode];
     transformableNode.name = transformName;
     [_objectsParent addChildNode:transformableNode];
-    SCNNode* childNode = [self getNodeWithGeometry:geometry fromDict:params];
-    [transformableNode addChildNode:childNode];
 }
 
 #pragma mark - Utils
@@ -1200,7 +1217,12 @@ const int thresholdMarkerCorners = 5;
     for(SCNNode* child in node.childNodes) {
         NSString* name = child.name;
         if (name == nil) name = @"null";
-        NSLog(@"**** [%d] %@ - %@", level, name, [child class]);
+        SCNVector3 pos = child.position;
+        SCNVector3 scl = child.scale;
+        NSLog(@"**** [%d] %@ - pos:[%f, %f, %f] scale:[%f, %f, %f] %@", level, name,
+              pos.x, pos.y, pos.z,
+              scl.x, scl.y, scl.z,
+              [child class]);
         [self debugNodeTree:child level:level + 1];
     }
 }
@@ -1228,6 +1250,8 @@ const int thresholdMarkerCorners = 5;
 
 static TransformableNode* selectedNode = nil;
 static SCNNode* selectedIcon = nil;
+static const CGFloat TRANSFORMABLE_NODE_MIN_SCALE = 0.5;
+static const CGFloat TRANSFORMABLE_NODE_MAX_SCALE = 2.0;
 
 @interface TransformableNode()
 @property CGFloat rotateStartDegree;
@@ -1235,11 +1259,12 @@ static SCNNode* selectedIcon = nil;
 
 @implementation TransformableNode
 
-- (nonnull instancetype)initWithPlane:(nonnull ARHitTestResult*)plane {
+- (nonnull instancetype)initWithPlane:(nonnull ARHitTestResult*)plane node:(SCNNode *)node{
     if (self = [super init]) {
         _anchor = plane.anchor;
         simd_float4 pos = plane.worldTransform.columns[3];
         self.position = SCNVector3Make(pos.x, pos.y, pos.z);
+        [self addChildNode:node];
     }
     return self;
 
@@ -1275,9 +1300,23 @@ static SCNNode* selectedIcon = nil;
     selectedNode = node;
 }
 
++ (void) clearSelected {
+    if (selectedIcon != nil && selectedIcon.parentNode != nil) {
+        [selectedIcon removeFromParentNode];
+    }
+    selectedNode = nil;
+}
+
 + (BOOL) pinch: (CGFloat) scale {
     if (selectedNode != nil) {
-        [selectedNode setScale:SCNVector3Make(selectedNode.scale.x * scale, selectedNode.scale.y * scale, selectedNode.scale.z * scale)];
+        CGFloat destScaleX = selectedNode.scale.x * scale;
+        if (destScaleX < TRANSFORMABLE_NODE_MIN_SCALE) {
+            [selectedNode setScale:SCNVector3Make(TRANSFORMABLE_NODE_MIN_SCALE, TRANSFORMABLE_NODE_MIN_SCALE, TRANSFORMABLE_NODE_MIN_SCALE)];
+        } else if (destScaleX > TRANSFORMABLE_NODE_MAX_SCALE) {
+            [selectedNode setScale:SCNVector3Make(TRANSFORMABLE_NODE_MAX_SCALE, TRANSFORMABLE_NODE_MAX_SCALE, TRANSFORMABLE_NODE_MAX_SCALE)];
+        } else {
+            [selectedNode setScale:SCNVector3Make(selectedNode.scale.x * scale, selectedNode.scale.y * scale, selectedNode.scale.z * scale)];
+        }
         return true;
     }
     return false;
