@@ -49,6 +49,8 @@
     if (node.name == nil) {
       node.name = [NSUUID UUID].UUIDString;
     }
+    [_controller setNodeToObjectsParent:node];
+    
     NSLog(@"**** didAddNodeForAnchor \n%@ \n%@", node, anchor);
     if (![_controller addNurieObject:anchor node: node]) {
         NSDictionary* params = [self prepareParamsForAnchorEventwithNode:node andAnchor:anchor];

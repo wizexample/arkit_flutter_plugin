@@ -342,10 +342,18 @@ class ARKitController {
 
   // need to call in onPlaneTap
   void addTransformableNode(String transformName, ARKitNode node) {
-    Map map = node.toMap();
-    map["parentNodeName"] = transformName;
+    final Map map = node.toMap();
+    map['parentNodeName'] = transformName;
     _channel.invokeMethod<void>(
         'addTransformableNode', {'transformName': transformName, 'node': map});
+  }
+
+  void addReferenceObject(String path, {String name}) {
+    final Map<String, String> map = {'path': path};
+    if (name != null) {
+      map['name'] = name;
+    }
+    _channel.invokeMethod<void>('addReferenceObject', map);
   }
 
   Map<String, dynamic> _addParentNodeNameToParams(
@@ -636,6 +644,8 @@ class ARKitController {
         return ARKitImageAnchor.fromMap(map);
       case 'faceAnchor':
         return ARKitFaceAnchor.fromMap(map);
+      case 'objectAnchor':
+        return ARKitObjectAnchor.fromMap(map);
     }
     return ARKitAnchor.fromMap(map);
   }

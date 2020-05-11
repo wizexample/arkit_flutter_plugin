@@ -59,6 +59,8 @@
 @property NSDate* markerGazeStartTime;
 @property NurieParams* targetNurieMarker;
 
+@property NSMutableSet* referenceObjects;
+
 @property VideoRecorder* videoRecorder;
 
 @property ARHitTestResult* lastTappedPlane;
@@ -142,6 +144,7 @@ const int thresholdMarkerCorners = 5;
 }
 
 - (void)onMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
+  NSLog(@"onMethodCall %@ - %@", call.method, call.arguments);
 //   if ([[call method] isEqualToString:@"init"]) {
 //     [self init:call result:result];
   if ([[call method] isEqualToString:@"addARKitNode"]) {
@@ -202,8 +205,9 @@ const int thresholdMarkerCorners = 5;
   } else if ([call.method isEqualToString:@"applyNurieTexture"]) {
       [self applyNurieTexture: call result: result];
   } else if ([call.method isEqualToString:@"addTransformableNode"]) {
-      NSLog(@"addTransformableNode %@", call.arguments);
       [self addTransformableNode: call result: result];
+  } else if ([call.method isEqualToString:@"addReferenceObject"]) {
+      [self addReferenceObject:call result:result];
   } else {
     result(FlutterMethodNotImplemented);
   }
@@ -287,7 +291,8 @@ const int thresholdMarkerCorners = 5;
 
     // [self.sceneView.session runWithConfiguration:[self configuration]];
     g_mSet = [[NSMutableSet alloc ]init];
-    _nurieParams =  [NSMutableDictionary dictionary];
+    _nurieParams = [NSMutableDictionary dictionary];
+    _referenceObjects = [NSMutableSet set];
 
     result(nil);
 }
@@ -319,7 +324,7 @@ const int thresholdMarkerCorners = 5;
 
 - (void)addNurie:(FlutterMethodCall*)call result:(FlutterResult)result {
     UIImage* uiimage;
-    if (call.arguments[@"filePath"] != nil) {
+    if ([self isFileExists: call.arguments[@"filePath"]]) {
         uiimage = [[UIImage alloc] initWithContentsOfFile:call.arguments[@"filePath"]];
     } else {
         NSData* imageData = [((FlutterStandardTypedData*) call.arguments[@"imageBytes"]) data];
@@ -343,6 +348,26 @@ const int thresholdMarkerCorners = 5;
     [g_mSet addObject:image];
 
     result(nil);
+}
+
+- (void) addReferenceObject:(FlutterMethodCall*)call result:(FlutterResult)result {
+    if ([self isFileExists: call.arguments[@"path"]]) {
+        NSURL* url = [NSURL fileURLWithPath:call.arguments[@"path"]];
+        ARReferenceObject* object = [[ARReferenceObject alloc] initWithArchiveURL:url error:nil];
+        if (call.arguments[@"name"] != nil) {
+            object.name = call.arguments[@"name"];
+        }
+        [_referenceObjects addObject:object];
+    }
+    result(nil);
+}
+
+- (BOOL) isFileExists: (NSString*) path {
+    if (path != nil) {
+        NSFileManager* filemanager = [NSFileManager defaultManager];
+        return [filemanager fileExistsAtPath: path];
+    }
+    return false;
 }
 
 - (SCNVector3) getScreenPoint:(SCNNode*) camera pose:(SCNNode*)pose x:(float)x z:(float)z {
@@ -375,7 +400,9 @@ const int thresholdMarkerCorners = 5;
     NSLog(@"####### startWorldTrackingSessionWithImage: runOpts=%@", runOpts);
 
     // ARWorldTrackingConfigurationのみ
-    ((ARWorldTrackingConfiguration*)_configuration).detectionImages = g_mSet;
+    ARWorldTrackingConfiguration* configuration = _configuration;
+    configuration.detectionImages = g_mSet;
+    configuration.detectionObjects = _referenceObjects;
     
     [self.sceneView.session runWithConfiguration:[self configuration] options:runOpts];
 }
@@ -853,6 +880,11 @@ const int thresholdMarkerCorners = 5;
         }
     }
     return false;
+}
+
+- (void) setNodeToObjectsParent:(SCNNode *)node {
+    [node removeFromParentNode];
+    [_objectsParent addChildNode:node];
 }
 
 - (BOOL)checkMarkerNurie:(ARAnchor*) anchor node:(SCNNode *)node {

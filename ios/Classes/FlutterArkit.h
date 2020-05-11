@@ -15,6 +15,7 @@ API_AVAILABLE(ios(11.3))
 - (nonnull UIView*)view;
 - (BOOL)addNurieObject:(nonnull ARAnchor*) anchor node: (nonnull SCNNode*) node;
 - (BOOL)checkMarkerNurie:(nonnull ARAnchor*) anchor node: (nonnull SCNNode*) node;
+- (void)setNodeToObjectsParent: (nonnull SCNNode*) node;
 
 @property (readonly, nonatomic, strong, nonnull) ARSCNView *sceneView;
 @property (readonly, nonatomic, strong, nonnull) ARConfiguration *configuration;
