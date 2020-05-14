@@ -1,10 +1,10 @@
 import 'package:arkit_plugin/arkit_node.dart';
+import 'package:arkit_plugin/geometries/arkit_geometry.dart';
 import 'package:arkit_plugin/light/arkit_light.dart';
 import 'package:arkit_plugin/physics/arkit_physics_body.dart';
 import 'package:arkit_plugin/utils/vector_utils.dart';
 import 'package:flutter/widgets.dart';
 import 'package:vector_math/vector_math_64.dart';
-import 'package:arkit_plugin/geometries/arkit_geometry.dart';
 
 class ARKitVideoNode extends ARKitNode {
   ARKitVideoNode({
@@ -19,6 +19,7 @@ class ARKitVideoNode extends ARKitNode {
     int renderingOrder,
     bool isHidden,
     bool isPlay,
+    this.centralizeOnLostTarget = false,
   })  : isPlay = ValueNotifier(isPlay),
         super(
           geometry: geometry,
@@ -33,6 +34,7 @@ class ARKitVideoNode extends ARKitNode {
           isHidden: isHidden,
         );
 
+  final bool centralizeOnLostTarget;
   final ValueNotifier<bool> isPlay;
 
   @override
@@ -44,6 +46,7 @@ class ARKitVideoNode extends ARKitNode {
         'rotation': convertVector4ToMap(rotation.value),
         'isHidden': isHidden.value,
         'isPlay': isPlay.value,
+        'centralizeOnLostTarget': centralizeOnLostTarget,
       }
         ..addAll(super.toMap())
         ..removeWhere((String k, dynamic v) => v == null);

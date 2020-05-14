@@ -342,6 +342,10 @@
     [_player pause];
 }
 
+- (BOOL) isPlaying {
+    return _player.rate != 0 && _player.error == nil;
+}
+
 - (void)drawRect:(CGRect)rect {
     self.drawableSize = self.bounds.size;
     _bufferMtkView.drawableSize = _bufferMtkView.bounds.size;
@@ -352,8 +356,12 @@
     
     CMTime time = _player.currentTime;
     CVPixelBufferRef pixelBuffer = [_output copyPixelBufferForItemTime:time itemTimeForDisplay:nil];
+    if (pixelBuffer == nil) {
+        return;
+    }
     CIImage* image = [[CIImage alloc]initWithCVPixelBuffer:pixelBuffer];
-    
+    CFRelease(pixelBuffer);
+
     if (drawable == nil || tempDrawable == nil || image == nil) {
         return;
     }

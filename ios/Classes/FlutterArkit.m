@@ -50,6 +50,8 @@
 @property (strong, nonatomic) CIContext* ciContext;
 
 @property SCNNode* objectsParent;
+@property SCNNode* fixedPositionLayer;
+@property SCNNode* fixedMovieLayer;
 
 @property int viewWidth;
 @property int viewHeight;
@@ -70,7 +72,7 @@
 
 @implementation FlutterArkitController
 
-static const NSString* REFERENCE_CHILD_NODE = @"REFERENCE_CHILD_NODE";
+static const NSString* REFERENCE_CHILD_NODE = @":REFERENCE_CHILD_NODE";
 
 static NSMutableSet *g_mSet = NULL;
 
@@ -85,6 +87,9 @@ const int thresholdMarkerCorners = 5;
     if ([super init]) {
         _viewId = viewId;
         _sceneView = [[ARSCNView alloc] initWithFrame:frame];
+        
+        SCNNode* cameraNode = _sceneView.pointOfView;
+        cameraNode.name = @":camera";
 
         _videoRecorder = [[VideoRecorder alloc] initWithView:_sceneView];
         _videoRecorder.delegate = self;
@@ -100,8 +105,24 @@ const int thresholdMarkerCorners = 5;
         _sceneView.delegate = self.delegate;
 
         _objectsParent = [[SCNNode alloc] init];
-        _objectsParent.name = @"objectsParent";
+        _objectsParent.name = @":objectsParent";
         [_sceneView.scene.rootNode addChildNode:_objectsParent];
+        _fixedPositionLayer = [SCNNode node];
+        _fixedPositionLayer.name = @":fixedPositionLayer";
+        [_objectsParent addChildNode:_fixedPositionLayer];
+        _fixedMovieLayer = [SCNNode node];
+        _fixedMovieLayer.name = @":fixedMovieLayer";
+        _fixedMovieLayer.position = SCNVector3Make(0, 0, -0.1);
+        [_fixedPositionLayer addChildNode:_fixedMovieLayer];
+
+//        SCNPlane* plane = [SCNPlane planeWithWidth: 0.05 height:0.05];
+//        SCNMaterial* mat = [SCNMaterial material];
+//        mat.diffuse.contents = [UIColor redColor];
+//        [plane setFirstMaterial:mat];
+//        SCNNode* testNode = [SCNNode node];
+//        testNode.geometry = plane;
+//        testNode.position = SCNVector3Make(0,0, -0.1);
+//        [_fixedPositionLayer addChildNode:testNode];
         
         [self setupLifeCycle];
     }
@@ -137,6 +158,14 @@ const int thresholdMarkerCorners = 5;
 - (void)applicationWillTerminate {
     NSLog(@"applicationWillTerminate");
     [_videoRecorder stopRecord];
+}
+
+- (void) updateEachFrame {
+    SCNNode* cameraNode = _sceneView.pointOfView;
+    _fixedPositionLayer.position = cameraNode.position;
+    _fixedPositionLayer.rotation = cameraNode.rotation;
+    float scale = 1 / cameraNode.camera.projectionTransform.m11;
+    _fixedPositionLayer.scale = SCNVector3Make(scale, scale, 1);
 }
 
 - (UIView*)view {
@@ -298,20 +327,17 @@ const int thresholdMarkerCorners = 5;
 }
 
 - (void)addImageRunWithConfigAndImage:(FlutterMethodCall*)call result:(FlutterResult)result {
-    NSNumber* imageLengthNSNumber = call.arguments[@"imageLength"];
-    double imageLength = [imageLengthNSNumber doubleValue];
-    NSData* imageData = [((FlutterStandardTypedData*) call.arguments[@"imageBytes"]) data];
+    UIImage* uiimage;
+    if ([self isFileExists: call.arguments[@"filePath"]]) {
+        uiimage = [[UIImage alloc] initWithContentsOfFile:call.arguments[@"filePath"]];
+    } else {
+        NSData* imageData = [((FlutterStandardTypedData*) call.arguments[@"imageBytes"]) data];
+        uiimage = [[UIImage alloc] initWithData:imageData];
+    }
     NSString* imageNameNSString = call.arguments[@"imageName"];
     NSNumber* markerSizeMeterNSNumber = call.arguments[@"markerSizeMeter"];
     double markerSizeMeter = [markerSizeMeterNSNumber doubleValue];
-    // NSLog(@"####### addImageRunWithConfigAndImage: imageLength=%@ imageName=%@ markerSizeMeter=%@", imageLength, imageNameNSString, markerSizeMeter);
 
-    //   'imageBytes': bytes,
-    //   'imageLength': lengthInBytes,
-    //   'imageName': imageName,
-    //   'markerSizeMeter': markerSizeMeter,
-
-    UIImage* uiimage = [[UIImage alloc] initWithData:imageData];
     CGImageRef cgImage = [uiimage CGImage];
     
     ARReferenceImage *image = [[ARReferenceImage alloc] initWithCGImage:cgImage orientation:kCGImagePropertyOrientationUp physicalWidth:markerSizeMeter];
@@ -699,15 +725,87 @@ const int thresholdMarkerCorners = 5;
     NSString* name = call.arguments[@"name"];
     SCNNode* node = [_objectsParent childNodeWithName:name recursively:YES];
 
-    if ([call.arguments[@"isHidden"] boolValue]) {
-        node.hidden = YES;
+    if ([node isMemberOfClass:VideoNode.class] && ((VideoNode*)node).centralizeOnLostTarget) {
+        VideoNode* vNode = (VideoNode*) node;
+        VideoView *videoView = vNode.geometry.firstMaterial.diffuse.contents;
+        if ([call.arguments[@"isHidden"] boolValue]) {
+            [vNode saveCurrent];
+            SCNMatrix4 fromTrans = [_fixedMovieLayer convertTransform:vNode.worldTransform fromNode:nil];
+            // centralize
+            [vNode removeFromParentNode];
+            [_fixedMovieLayer addChildNode:vNode];
+            vNode.transform = fromTrans;
+
+            SCNVector3 worldUL = [self calcPointOfView:50 top:50 distance:0.1];
+            SCNVector3 worldBR = [self calcPointOfView:_sceneView.bounds.size.width-50 top:_sceneView.bounds.size.height-50 distance:0.1];
+            SCNVector3 ul = [_fixedMovieLayer convertPosition:worldUL fromNode:nil];
+            SCNVector3 br = [_fixedMovieLayer convertPosition:worldBR fromNode:nil];
+            float width = br.x - ul.x;
+            float height = ul.y - br.y;
+            float rate = MIN(width / ((SCNPlane*)vNode.geometry).width, height / ((SCNPlane*)vNode.geometry).height);
+
+            float duration = 0.25;
+            SCNAction* move = [SCNAction moveTo:SCNVector3Zero duration:duration];
+            SCNAction* rotate = [SCNAction rotateToX:0 y:0 z:0 duration:duration];
+            SCNAction* scale = [SCNAction scaleTo:rate duration:duration];
+            SCNAction* group = [SCNAction group:@[move, rotate, scale]];
+            [vNode runAction:group];
+            
+//            SCNPlane* plane = [SCNPlane planeWithWidth: 1 height:1];
+//            SCNMaterial* mat = [SCNMaterial material];
+//            mat.diffuse.contents = [UIColor redColor];
+//            [plane setFirstMaterial:mat];
+//            SCNNode* testNode = [SCNNode node];
+//            testNode.geometry = plane;
+//            testNode.scale = SCNVector3Make(br.x - ul.x, ul.y - br.y, 1);
+//            [_fixedMovieLayer addChildNode:testNode];
+
+            NSLog(@"**** w: %f h: %f, scale: %f", (br.x - ul.x), (ul.y - br.y), (1 / _sceneView.pointOfView.camera.projectionTransform.m11));
+            
+            
+            if (!videoView.isPlaying) {
+                vNode.hidden = YES;
+            }
+        } else {
+            // reposition
+            SCNMatrix4 fromTrans = [vNode.originalParentNode convertTransform:vNode.worldTransform fromNode:nil];
+
+            [vNode removeFromParentNode];
+            [vNode.originalParentNode addChildNode:vNode];
+            vNode.transform = fromTrans;
+
+            float duration = 0.25;
+            SCNAction* move = [SCNAction moveTo:vNode.originalPosition duration:duration];
+            SCNAction* rotate = [SCNAction rotateToX:vNode.originalEulerAngles.x y:vNode.originalEulerAngles.y z:vNode.originalEulerAngles.z duration:duration];
+            SCNAction* scale = [SCNAction scaleTo:1.0 duration:duration];
+            SCNAction* group = [SCNAction group:@[move, rotate, scale]];
+            [node runAction:group];
+
+            node.hidden = NO;
+            if (!videoView.isPlaying) {
+                [videoView play];
+            }
+        }
     } else {
-        node.hidden = NO;
+        if ([call.arguments[@"isHidden"] boolValue]) {
+            node.hidden = YES;
+        } else {
+            node.hidden = NO;
+        }
     }
 
     NSLog(@"node.isHidden:%d",node.isHidden);
     
     result(nil);
+}
+
+- (SCNVector3) calcPointOfView:(CGFloat)left top:(CGFloat)top distance:(CGFloat)distance {
+    SCNVector3 cam = SCNVector3Make(0, 0, -0.1);
+    SCNVector3 wld = [_sceneView.pointOfView convertPosition:cam toNode:nil];
+    SCNVector3 scr = [_sceneView projectPoint: wld];
+    scr.x = left;
+    scr.y = top;
+    return [_sceneView unprojectPoint: scr];
 }
 
 - (void) updateIsPlay:(FlutterMethodCall*)call andResult:(FlutterResult)result{
@@ -725,7 +823,7 @@ const int thresholdMarkerCorners = 5;
             }
         }
     }
-    if([node.geometry.firstMaterial.diffuse.contents isMemberOfClass:[VideoView class]]){
+    if([node isMemberOfClass:[VideoNode class]]){
         VideoView *videoView = node.geometry.firstMaterial.diffuse.contents;
         if ([call.arguments[@"isPlay"] boolValue]) {
             [videoView play];
@@ -1052,7 +1150,9 @@ const int thresholdMarkerCorners = 5;
         }
     } else if([dict[@"dartType"] isEqualToString:@"ARKitVideoNode"]){
         //TODO VideoNode作成
-        node = [SCNNode nodeWithGeometry:geometry];
+        VideoNode* videoNode = [VideoNode nodeWithGeometry:geometry];
+        videoNode.centralizeOnLostTarget = dict[@"centralizeOnLostTarget"];
+        node = videoNode;
     } else {
         return nil;
     }
@@ -1202,6 +1302,11 @@ const int thresholdMarkerCorners = 5;
     } else {
         [_objectsParent addChildNode:node];
     }
+    
+    if ([node isMemberOfClass:VideoNode.class]) {
+        [((VideoNode*)node) saveCurrent];
+    }
+    
     result(nil);
 }
 
@@ -1368,6 +1473,17 @@ static const CGFloat TRANSFORMABLE_NODE_MAX_SCALE = 2.0;
         return true;
     }
     return false;
+}
+
+@end
+
+
+@implementation VideoNode
+
+- (void) saveCurrent {
+    _originalParentNode = self.parentNode;
+    _originalPosition = self.position;
+    _originalEulerAngles = self.eulerAngles;
 }
 
 @end

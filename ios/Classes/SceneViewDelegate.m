@@ -45,6 +45,10 @@
   [_channel invokeMethod: @"onSessionInterruptionEnded" arguments: nil];
 }
 
+- (void) renderer:(id<SCNSceneRenderer>)renderer updateAtTime:(NSTimeInterval)time {
+    [_controller updateEachFrame];
+}
+
 - (void)renderer:(id <SCNSceneRenderer>)renderer didAddNode:(SCNNode *)node forAnchor:(ARAnchor *)anchor {
     if (node.name == nil) {
       node.name = [NSUUID UUID].UUIDString;

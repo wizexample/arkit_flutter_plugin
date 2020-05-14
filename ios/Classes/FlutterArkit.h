@@ -16,6 +16,7 @@ API_AVAILABLE(ios(11.3))
 - (BOOL)addNurieObject:(nonnull ARAnchor*) anchor node: (nonnull SCNNode*) node;
 - (BOOL)checkMarkerNurie:(nonnull ARAnchor*) anchor node: (nonnull SCNNode*) node;
 - (void)setNodeToObjectsParent: (nonnull SCNNode*) node;
+- (void)updateEachFrame;
 
 @property (readonly, nonatomic, strong, nonnull) ARSCNView *sceneView;
 @property (readonly, nonatomic, strong, nonnull) ARConfiguration *configuration;
@@ -57,5 +58,16 @@ API_AVAILABLE(ios(11.3))
 - (nonnull instancetype)initWithPlane:(nonnull ARHitTestResult*)plane node:(SCNNode*) node;
 
 @property ARAnchor* _Nonnull anchor;
+
+@end
+
+@interface VideoNode : SCNNode
+
+@property BOOL centralizeOnLostTarget;
+@property SCNNode* originalParentNode;
+@property SCNVector3 originalPosition;
+@property SCNVector3 originalEulerAngles;
+
+- (void) saveCurrent;
 
 @end

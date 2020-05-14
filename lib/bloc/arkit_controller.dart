@@ -126,14 +126,36 @@ class ARKitController {
     });
   }
 
-  void addImageRunWithConfigAndImage(Uint8List bytes, int lengthInBytes,
-      String imageName, double markerSizeMeter) {
-    _channel.invokeMethod<void>('addImageRunWithConfigAndImage', {
-      'imageBytes': bytes,
-      'imageLength': lengthInBytes,
+//  void addImageRunWithConfigAndImage(Uint8List bytes, int lengthInBytes,
+//      String imageName, double markerSizeMeter) {
+//    _channel.invokeMethod<void>('addImageRunWithConfigAndImage', {
+//      'imageBytes': bytes,
+//      'imageLength': lengthInBytes,
+//      'imageName': imageName,
+//      'markerSizeMeter': markerSizeMeter,
+//    });
+//  }
+
+  void addImageRunWithConfigAndImage(String imageName, double markerSizeMeter,
+      {int lengthInBytes, Uint8List bytes, String filePath}) {
+    bool paramsSatisfied = false;
+    Map map = {
       'imageName': imageName,
       'markerSizeMeter': markerSizeMeter,
-    });
+    };
+    if (lengthInBytes != null && imageName != null) {
+      map['imageLength'] = lengthInBytes;
+      map['imageBytes'] = bytes;
+      paramsSatisfied = true;
+    }
+    if (filePath != null) {
+      map['filePath'] = filePath;
+      paramsSatisfied = true;
+    }
+
+    if (paramsSatisfied) {
+      _channel.invokeMethod<void>('addImageRunWithConfigAndImage', map);
+    }
   }
 
   void startWorldTrackingSessionWithImage(int runOptions) {

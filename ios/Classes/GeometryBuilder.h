@@ -14,6 +14,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void) play;
 - (void) pause;
+- (BOOL) isPlaying;
 - (instancetype)initWithProperties:(NSDictionary*)videoProperties;
 @property CGFloat width;
 @property CGFloat height;
