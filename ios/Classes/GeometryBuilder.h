@@ -3,6 +3,7 @@
 @import MetalKit;
 
 NS_ASSUME_NONNULL_BEGIN
+typedef void (^OnReachToEnd)(void);
 
 @interface GeometryBuilder : NSObject
 
@@ -18,6 +19,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithProperties:(NSDictionary*)videoProperties;
 @property CGFloat width;
 @property CGFloat height;
+@property BOOL isLoop;
+@property (copy) OnReachToEnd doOnReachToEnd;
 
 @end
 

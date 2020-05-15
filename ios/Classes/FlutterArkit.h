@@ -64,10 +64,17 @@ API_AVAILABLE(ios(11.3))
 @interface VideoNode : SCNNode
 
 @property BOOL centralizeOnLostTarget;
-@property SCNNode* originalParentNode;
+@property float margin;
+@property float duration;
+
+@property SCNNode* _Nonnull originalParentNode;
 @property SCNVector3 originalPosition;
 @property SCNVector3 originalEulerAngles;
+@property SCNVector3 originalScale;
+
++ (VideoNode* _Nonnull)nodeWithGeometry:(nullable SCNGeometry *)geometry arguments: (NSDictionary*)dict;
 
 - (void) saveCurrent;
+- (BOOL) centralize:(BOOL)lostTarget sceneView:(SCNView*)sceneView fixedLayer:(SCNNode*) fixedMovieLayer;
 
 @end

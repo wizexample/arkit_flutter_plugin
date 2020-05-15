@@ -20,6 +20,8 @@ class ARKitVideoNode extends ARKitNode {
     bool isHidden,
     bool isPlay,
     this.centralizeOnLostTarget = false,
+    this.marginPercent = 5.0,
+    this.durationMilliSec = 150.0,
   })  : isPlay = ValueNotifier(isPlay),
         super(
           geometry: geometry,
@@ -35,6 +37,9 @@ class ARKitVideoNode extends ARKitNode {
         );
 
   final bool centralizeOnLostTarget;
+  final double marginPercent;
+  final double durationMilliSec;
+
   final ValueNotifier<bool> isPlay;
 
   @override
@@ -47,6 +52,8 @@ class ARKitVideoNode extends ARKitNode {
         'isHidden': isHidden.value,
         'isPlay': isPlay.value,
         'centralizeOnLostTarget': centralizeOnLostTarget,
+        'marginPercent': marginPercent,
+        'durationMilliSec': durationMilliSec,
       }
         ..addAll(super.toMap())
         ..removeWhere((String k, dynamic v) => v == null);

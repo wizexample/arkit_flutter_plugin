@@ -724,70 +724,10 @@ const int thresholdMarkerCorners = 5;
 - (void) updateIsHidden:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
     SCNNode* node = [_objectsParent childNodeWithName:name recursively:YES];
+    BOOL lostTarget = [call.arguments[@"isHidden"] boolValue];
 
-    if ([node isMemberOfClass:VideoNode.class] && ((VideoNode*)node).centralizeOnLostTarget) {
-        VideoNode* vNode = (VideoNode*) node;
-        VideoView *videoView = vNode.geometry.firstMaterial.diffuse.contents;
-        if ([call.arguments[@"isHidden"] boolValue]) {
-            [vNode saveCurrent];
-            SCNMatrix4 fromTrans = [_fixedMovieLayer convertTransform:vNode.worldTransform fromNode:nil];
-            // centralize
-            [vNode removeFromParentNode];
-            [_fixedMovieLayer addChildNode:vNode];
-            vNode.transform = fromTrans;
-
-            SCNVector3 worldUL = [self calcPointOfView:50 top:50 distance:0.1];
-            SCNVector3 worldBR = [self calcPointOfView:_sceneView.bounds.size.width-50 top:_sceneView.bounds.size.height-50 distance:0.1];
-            SCNVector3 ul = [_fixedMovieLayer convertPosition:worldUL fromNode:nil];
-            SCNVector3 br = [_fixedMovieLayer convertPosition:worldBR fromNode:nil];
-            float width = br.x - ul.x;
-            float height = ul.y - br.y;
-            float rate = MIN(width / ((SCNPlane*)vNode.geometry).width, height / ((SCNPlane*)vNode.geometry).height);
-
-            float duration = 0.25;
-            SCNAction* move = [SCNAction moveTo:SCNVector3Zero duration:duration];
-            SCNAction* rotate = [SCNAction rotateToX:0 y:0 z:0 duration:duration];
-            SCNAction* scale = [SCNAction scaleTo:rate duration:duration];
-            SCNAction* group = [SCNAction group:@[move, rotate, scale]];
-            [vNode runAction:group];
-            
-//            SCNPlane* plane = [SCNPlane planeWithWidth: 1 height:1];
-//            SCNMaterial* mat = [SCNMaterial material];
-//            mat.diffuse.contents = [UIColor redColor];
-//            [plane setFirstMaterial:mat];
-//            SCNNode* testNode = [SCNNode node];
-//            testNode.geometry = plane;
-//            testNode.scale = SCNVector3Make(br.x - ul.x, ul.y - br.y, 1);
-//            [_fixedMovieLayer addChildNode:testNode];
-
-            NSLog(@"**** w: %f h: %f, scale: %f", (br.x - ul.x), (ul.y - br.y), (1 / _sceneView.pointOfView.camera.projectionTransform.m11));
-            
-            
-            if (!videoView.isPlaying) {
-                vNode.hidden = YES;
-            }
-        } else {
-            // reposition
-            SCNMatrix4 fromTrans = [vNode.originalParentNode convertTransform:vNode.worldTransform fromNode:nil];
-
-            [vNode removeFromParentNode];
-            [vNode.originalParentNode addChildNode:vNode];
-            vNode.transform = fromTrans;
-
-            float duration = 0.25;
-            SCNAction* move = [SCNAction moveTo:vNode.originalPosition duration:duration];
-            SCNAction* rotate = [SCNAction rotateToX:vNode.originalEulerAngles.x y:vNode.originalEulerAngles.y z:vNode.originalEulerAngles.z duration:duration];
-            SCNAction* scale = [SCNAction scaleTo:1.0 duration:duration];
-            SCNAction* group = [SCNAction group:@[move, rotate, scale]];
-            [node runAction:group];
-
-            node.hidden = NO;
-            if (!videoView.isPlaying) {
-                [videoView play];
-            }
-        }
-    } else {
-        if ([call.arguments[@"isHidden"] boolValue]) {
+    if (![node isMemberOfClass:VideoNode.class] || ![((VideoNode*)node) centralize:lostTarget sceneView:_sceneView fixedLayer:_fixedMovieLayer]) {
+        if (lostTarget) {
             node.hidden = YES;
         } else {
             node.hidden = NO;
@@ -1149,10 +1089,7 @@ const int thresholdMarkerCorners = 5;
             [node addChildNode:childNode];
         }
     } else if([dict[@"dartType"] isEqualToString:@"ARKitVideoNode"]){
-        //TODO VideoNode作成
-        VideoNode* videoNode = [VideoNode nodeWithGeometry:geometry];
-        videoNode.centralizeOnLostTarget = dict[@"centralizeOnLostTarget"];
-        node = videoNode;
+        node = [VideoNode nodeWithGeometry:geometry arguments:dict];
     } else {
         return nil;
     }
@@ -1480,10 +1417,91 @@ static const CGFloat TRANSFORMABLE_NODE_MAX_SCALE = 2.0;
 
 @implementation VideoNode
 
++ (VideoNode* _Nonnull)nodeWithGeometry:(nullable SCNGeometry *)geometry arguments: (NSDictionary*)dict {
+    VideoNode* node = [VideoNode nodeWithGeometry:geometry];
+    node.centralizeOnLostTarget = dict[@"centralizeOnLostTarget"];
+    node.margin = [dict[@"marginPercent"] floatValue] / 100;
+    node.duration = [dict[@"durationMilliSec"] floatValue] / 1000;
+    return node;
+}
+
 - (void) saveCurrent {
     _originalParentNode = self.parentNode;
     _originalPosition = self.position;
     _originalEulerAngles = self.eulerAngles;
+    _originalScale = self.scale;
 }
+
+- (BOOL) centralize:(BOOL)lostTarget sceneView:(SCNView*)sceneView fixedLayer:(SCNNode*) fixedMovieLayer {
+    if (_centralizeOnLostTarget) {
+        VideoView *videoView = self.geometry.firstMaterial.diffuse.contents;
+        videoView.doOnReachToEnd = ^ {
+            if (self.parentNode == fixedMovieLayer) {
+                self.hidden = YES;
+                [self removeFromParentNode];
+                [self.originalParentNode addChildNode:self];
+                self.position = self.originalPosition;
+                self.eulerAngles = self.originalEulerAngles;
+                self.scale = self.originalScale;
+            }
+        };
+        if (lostTarget) {
+            if (!videoView.isPlaying) {
+                self.hidden = YES;
+            } else {
+                SCNMatrix4 fromTrans = [fixedMovieLayer convertTransform:self.worldTransform fromNode:nil];
+                [self removeFromParentNode];
+                [fixedMovieLayer addChildNode:self];
+                self.transform = fromTrans;
+
+                CGFloat wMargin = sceneView.bounds.size.width * self.margin;
+                CGFloat hMargin = sceneView.bounds.size.height * self.margin;
+                SCNVector3 worldUL = [self calcPointOfView:sceneView left:wMargin top:hMargin distance:0.1];
+                SCNVector3 worldBR = [self calcPointOfView:sceneView left:sceneView.bounds.size.width - wMargin top:sceneView.bounds.size.height - hMargin distance:0.1];
+                SCNVector3 ul = [fixedMovieLayer convertPosition:worldUL fromNode:nil];
+                SCNVector3 br = [fixedMovieLayer convertPosition:worldBR fromNode:nil];
+                float width = br.x - ul.x;
+                float height = ul.y - br.y;
+                float rate = MIN(width / ((SCNPlane*)self.geometry).width, height / ((SCNPlane*)self.geometry).height);
+
+                SCNAction* move = [SCNAction moveTo:SCNVector3Zero duration:self.duration];
+                SCNAction* rotate = [SCNAction rotateToX:0 y:0 z:0 duration:self.duration];
+                SCNAction* scale = [SCNAction scaleTo:rate duration:self.duration];
+                SCNAction* group = [SCNAction group:@[move, rotate, scale]];
+                [self runAction:group];
+            }
+        } else {
+            SCNMatrix4 fromTrans = [self.originalParentNode convertTransform:self.worldTransform fromNode:nil];
+
+            [self removeFromParentNode];
+            [self.originalParentNode addChildNode:self];
+            self.transform = fromTrans;
+
+            SCNAction* move = [SCNAction moveTo:self.originalPosition duration:self.duration];
+            SCNAction* rotate = [SCNAction rotateToX:self.originalEulerAngles.x y:self.originalEulerAngles.y z:self.originalEulerAngles.z duration:self.duration];
+            SCNAction* scale = [SCNAction scaleTo:self.originalScale.x duration:self.duration];
+            SCNAction* group = [SCNAction group:@[move, rotate, scale]];
+            [self runAction:group];
+
+            self.hidden = NO;
+            if (!videoView.isPlaying) {
+                [videoView play];
+            }
+        }
+        return true;
+    } else {
+        return false;
+    }
+}
+
+- (SCNVector3) calcPointOfView: (SCNView*)sceneView left:(CGFloat)left top:(CGFloat)top distance:(CGFloat)distance {
+    SCNVector3 cam = SCNVector3Make(0, 0, -0.1);
+    SCNVector3 wld = [sceneView.pointOfView convertPosition:cam toNode:nil];
+    SCNVector3 scr = [sceneView projectPoint: wld];
+    scr.x = left;
+    scr.y = top;
+    return [sceneView unprojectPoint: scr];
+}
+
 
 @end

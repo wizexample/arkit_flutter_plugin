@@ -267,7 +267,7 @@
 
 - (instancetype)initWithProperties:(NSDictionary *)videoProperties {
     NSURL *videoURL = [[NSURL alloc] initFileURLWithPath: videoProperties[@"videoPath"]];
-    bool isLoop = [videoProperties[@"isLoop"] boolValue];
+    _isLoop = [videoProperties[@"isLoop"] boolValue];
     NSNumber* tempColor = videoProperties[@"chromaKeyColor"];
     UIColor* keyingColor = [UIColor fromRGB: [tempColor integerValue]];
     [keyingColor getRed:&_keyingR green:&_keyingG blue:&_keyingB alpha:nil];
@@ -313,14 +313,11 @@
         AVPlayerItem *playerItem = [[AVPlayerItem alloc] initWithURL: videoURL];
         _player = [[AVPlayer alloc] initWithPlayerItem: playerItem];
         
-        //TODO 動画ループ処理
-        if (isLoop){
-           _player.actionAtItemEnd = AVPlayerActionAtItemEndNone;
-           [[NSNotificationCenter defaultCenter] addObserver:self
-                                                    selector:@selector(playerItemDidReachEnd:)
-                                                        name:AVPlayerItemDidPlayToEndTimeNotification
-                                                      object:[_player currentItem]];
-        }
+       _player.actionAtItemEnd = AVPlayerActionAtItemEndPause;
+       [[NSNotificationCenter defaultCenter] addObserver:self
+                                                selector:@selector(reachToEnd:)
+                                                    name:AVPlayerItemDidPlayToEndTimeNotification
+                                                  object:[_player currentItem]];
         [_player.currentItem addOutput:_output];
         
         _width = videoTrack.naturalSize.width;
@@ -334,6 +331,9 @@
 
 - (void) play {
     NSLog(@"videoView play");
+    if (CMTimeGetSeconds(_player.currentItem.asset.duration) <= CMTimeGetSeconds(_player.currentTime)) {
+        [_player seekToTime:kCMTimeZero];
+    }
     [_player play];
 }
 
@@ -391,10 +391,13 @@
     [commandBuffer waitUntilCompleted];
 }
 
-- (void) playerItemDidReachEnd:(NSNotification *)notification {
+- (void) reachToEnd:(NSNotification *)notification {
     NSLog(@"####### playerItemDidReachEnd=%@", [notification object]);
-    AVPlayerItem *p = [notification object];
-    [p seekToTime:kCMTimeZero];
+    if (_isLoop) {
+        [self play];
+    } else if (_doOnReachToEnd != nil) {
+        _doOnReachToEnd();
+    }
 }
 
 @end
