@@ -933,15 +933,30 @@ const int thresholdMarkerCorners = 5;
             NurieParams* nurie = _nurieParams[imageName];
             SCNNode* cameraNode = _sceneView.pointOfView;
             
-            float halfTextureWidth = image.referenceImage.physicalSize.width * nurie.widthScale / 2;
-            float halfTextureHeight = image.referenceImage.physicalSize.height * nurie.heightScale / 2;
-            float moveX = image.referenceImage.physicalSize.width * nurie.xOffset;
-            float moveY = -image.referenceImage.physicalSize.height * nurie.yOffset;
+            float textureWidth = image.referenceImage.physicalSize.width * nurie.widthScale;
+            float textureHeight = image.referenceImage.physicalSize.height * nurie.heightScale;
+            float l, u;
+            if (nurie.xOffset > 0.0f) {
+                l = (nurie.xOffset - 0.5f) * image.referenceImage.physicalSize.width;
+            } else if (nurie.xOffset < 0.0f) {
+                l = (nurie.xOffset + 0.5f) * image.referenceImage.physicalSize.width - textureWidth;
+            } else {
+                l = -textureWidth / 2;
+            }
+            if (nurie.yOffset > 0.0f) {
+                u = -(nurie.yOffset - 0.5f) * image.referenceImage.physicalSize.height - textureHeight;
+            } else if (nurie.yOffset < 0.0f) {
+                u = -(nurie.yOffset + 0.5f) * image.referenceImage.physicalSize.height;
+            } else {
+                u = -textureHeight / 2;
+            }
+            float r = l + textureWidth;
+            float d = u + textureHeight;
             
-            SCNVector3 ul = [self getScreenPoint:cameraNode pose:node x:-halfTextureWidth + moveX z:-halfTextureHeight + moveY];
-            SCNVector3 ur = [self getScreenPoint:cameraNode pose:node x:halfTextureWidth + moveX z:-halfTextureHeight + moveY];
-            SCNVector3 bl = [self getScreenPoint:cameraNode pose:node x:-halfTextureWidth + moveX z:halfTextureHeight + moveY];
-            SCNVector3 br = [self getScreenPoint:cameraNode pose:node x:halfTextureWidth + moveX z:halfTextureHeight + moveY];
+            SCNVector3 ul = [self getScreenPoint:cameraNode pose:node x:l z:u];
+            SCNVector3 ur = [self getScreenPoint:cameraNode pose:node x:r z:u];
+            SCNVector3 bl = [self getScreenPoint:cameraNode pose:node x:l z:d];
+            SCNVector3 br = [self getScreenPoint:cameraNode pose:node x:r z:d];
             SCNVector3 arr[] = {ul, ur, bl, br};
 
             if ([self validMarkerCorners:_viewWidth height:_viewHeight corners:arr]) {
@@ -1495,7 +1510,7 @@ static const CGFloat TRANSFORMABLE_NODE_MAX_SCALE = 2.0;
 }
 
 - (SCNVector3) calcPointOfView: (SCNView*)sceneView left:(CGFloat)left top:(CGFloat)top distance:(CGFloat)distance {
-    SCNVector3 cam = SCNVector3Make(0, 0, -0.1);
+    SCNVector3 cam = SCNVector3Make(0, 0, -distance);
     SCNVector3 wld = [sceneView.pointOfView convertPosition:cam toNode:nil];
     SCNVector3 scr = [sceneView projectPoint: wld];
     scr.x = left;
