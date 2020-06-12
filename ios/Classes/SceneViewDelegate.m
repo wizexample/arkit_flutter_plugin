@@ -56,17 +56,15 @@
     [_controller setNodeToObjectsParent:node];
     
     NSLog(@"**** didAddNodeForAnchor \n%@ \n%@", node, anchor);
-    if (![_controller addNurieObject:anchor node: node]) {
-        NSDictionary* params = [self prepareParamsForAnchorEventwithNode:node andAnchor:anchor];
-        [_channel invokeMethod: @"didAddNodeForAnchor" arguments: params];
-    }
+    [_controller addNurieObject:anchor node: node];
+    NSDictionary* params = [self prepareParamsForAnchorEventwithNode:node andAnchor:anchor];
+    [_channel invokeMethod: @"didAddNodeForAnchor" arguments: params];
 }
 
 - (void)renderer:(id <SCNSceneRenderer>)renderer didUpdateNode:(SCNNode *)node forAnchor:(ARAnchor *)anchor {
-  NSDictionary* params = [self prepareParamsForAnchorEventwithNode:node andAnchor:anchor];
-  if (![_controller checkMarkerNurie:anchor node: node]) {
-      [_channel invokeMethod: @"didUpdateNodeForAnchor" arguments: params];
-  }
+    NSDictionary* params = [self prepareParamsForAnchorEventwithNode:node andAnchor:anchor];
+    [_controller checkMarkerNurie:anchor node: node];
+    [_channel invokeMethod: @"didUpdateNodeForAnchor" arguments: params];
 }
 
 #pragma mark - Helpers
