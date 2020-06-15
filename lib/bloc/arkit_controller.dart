@@ -188,7 +188,7 @@ class ARKitController {
   ARKitPinchGestureHandler onNodePinch;
   ARKitPanResultHandler onNodePan;
   Function(bool) onNurieMarkerModeChanged;
-  Function(bool) onRecStatusChanged;
+  Function(RecStatus) onRecStatusChanged;
 
   /// Called when a new node has been mapped to the given anchor.
   AnchorEventHandler onAddNodeForAnchor;
@@ -455,7 +455,8 @@ class ARKitController {
         break;
       case 'onRecStatusChanged':
         if (onRecStatusChanged != null) {
-          onRecStatusChanged(call.arguments['isRecording']);
+          final RecStatus stat = RecStatus.get(call.arguments['recStatus']);
+          onRecStatusChanged(stat);
         }
         break;
       default:
@@ -690,6 +691,34 @@ class ARKitRecordingWithAudio {
 
   static ARKitRecordingWithAudio get(int value) {
     ARKitRecordingWithAudio ret = UseMic;
+    values.forEach((m) {
+      if (m._value == value) {
+        ret = m;
+        return;
+      }
+    });
+    return ret;
+  }
+
+  @override
+  String toString() {
+    return '$_text - $_value';
+  }
+}
+
+class RecStatus {
+  const RecStatus._(this._value, this._text);
+
+  static const RecStatus Idle = RecStatus._(0, 'Idle');
+  static const RecStatus Recording = RecStatus._(1, 'Recording');
+  static const RecStatus Busy = RecStatus._(2, 'Busy');
+  static final values = [Idle, Recording, Busy];
+
+  final int _value;
+  final String _text;
+
+  static RecStatus get(int value) {
+    RecStatus ret = Idle;
     values.forEach((m) {
       if (m._value == value) {
         ret = m;

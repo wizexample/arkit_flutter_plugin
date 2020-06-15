@@ -1338,8 +1338,8 @@ const int thresholdMarkerCorners = 5;
     }
 }
 
-- (void) recStateChanged:(BOOL)isRecording {
-    [_channel invokeMethod: @"onRecStatusChanged" arguments: @{@"isRecording": @(isRecording)}];
+- (void) recStateChanged:(int)recStatus {
+    [_channel invokeMethod: @"onRecStatusChanged" arguments: @{@"recStatus": @(recStatus)}];
 }
 
 @end

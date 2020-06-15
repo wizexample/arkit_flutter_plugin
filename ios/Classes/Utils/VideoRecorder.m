@@ -9,12 +9,16 @@
 
 static const int frameRate = 30;
 static const int USE_MIC = 1;
+static const int REC_STATUS_IDLE = 0;
+static const int REC_STATUS_RECORDING = 1;
+static const int REC_STATUS_BUSY = 2;
 
 @interface VideoRecorder()
 
 @property CGFloat scale;
 @property BOOL isRecording;
 @property CADisplayLink* displayLink;
+@property BOOL isBusy;
 
 @property int frameCount;
 @property NSURL* outputURL;
@@ -46,7 +50,10 @@ static const int USE_MIC = 1;
 
 
 - (void) startRecord:(NSString*) path useAudio:(int)useAudio {
-    if (_isRecording) return;
+    if (_isRecording || _isBusy) {
+        NSLog(@"startRecord failure: isRecording:%d, isBusy: %d", _isRecording, _isBusy);
+        return;
+    }
     NSLog(@"startScreenRecord audio:%d", useAudio);
     _isRecording = true;
     [self clearFiles:path];
@@ -69,8 +76,9 @@ static const int USE_MIC = 1;
         return;
     }
     if (_delegate != nil) {
-        [_delegate recStateChanged:true];
+        [_delegate recStateChanged:REC_STATUS_RECORDING];
     }
+    _isBusy = true;
 }
 
 - (void) stopRecord {
@@ -80,10 +88,10 @@ static const int USE_MIC = 1;
     [_displayLink removeFromRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
 
     [self stopRecordMic];
-    [self finishVideoWriting];
     if (_delegate != nil) {
-        [_delegate recStateChanged:false];
+        [_delegate recStateChanged:REC_STATUS_BUSY];
     }
+    [self finishVideoWriting];
 }
 
 - (void) stopRecordMic {
@@ -266,6 +274,10 @@ static const int USE_MIC = 1;
             NSLog(@"movie created count:%d", self->_frameCount);
             CVPixelBufferPoolRelease(self->_adaptor.pixelBufferPool);
             [self registerVideoToGallery];
+            if (_delegate != nil) {
+                [_delegate recStateChanged:REC_STATUS_IDLE];
+            }
+            _isBusy = false;
         }];
     });
 }

@@ -12,7 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @protocol VideoRecorderDelegate <NSObject>
 
-- (void)recStateChanged:(BOOL)isRecording;
+- (void)recStateChanged:(int)recStatus;
 
 @end
 
