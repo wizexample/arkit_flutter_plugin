@@ -720,8 +720,16 @@ const int thresholdMarkerCorners = 5;
 - (void) updateEulerAngles:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
     SCNNode* node = [_objectsParent childNodeWithName:name recursively:YES];
-    node.eulerAngles = [DecodableUtils parseVector3:call.arguments];
+    float degX = [call.arguments[@"x"] floatValue];
+    float degY = [call.arguments[@"y"] floatValue];
+    float degZ = [call.arguments[@"z"] floatValue];
+
+    node.eulerAngles = SCNVector3Make([self deg2Rad:degX], [self deg2Rad:degY], [self deg2Rad:degZ]);
     result(nil);
+}
+
+- (float) deg2Rad:(float) degrees {
+    return degrees * M_PI / 180;
 }
 
 - (void) updateScale:(FlutterMethodCall*)call andResult:(FlutterResult)result{
@@ -1127,7 +1135,11 @@ const int thresholdMarkerCorners = 5;
         node.rotation = [DecodableUtils parseVector4:dict[@"rotation"]];
     }
     if (dict[@"eulerAngles"] != nil) {
-        node.eulerAngles = [DecodableUtils parseVector3:dict[@"eulerAngles"]];
+        float degX = [dict[@"eulerAngles"][@"x"] floatValue];
+        float degY = [dict[@"eulerAngles"][@"y"] floatValue];
+        float degZ = [dict[@"eulerAngles"][@"z"] floatValue];
+
+        node.eulerAngles = SCNVector3Make([self deg2Rad:degX], [self deg2Rad:degY], [self deg2Rad:degZ]);
     }
     if (dict[@"name"] != nil) {
         node.name = dict[@"name"];
