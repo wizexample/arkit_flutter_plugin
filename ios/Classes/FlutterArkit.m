@@ -129,6 +129,14 @@ const int thresholdMarkerCorners = 5;
     return self;
 }
 
+- (void) requestMicPermission {
+    [AVCaptureDevice requestAccessForMediaType:AVMediaTypeAudio completionHandler:^(bool granted){
+        if (!granted) {
+            self.videoRecorder.micPermissionDenied = true;
+        }
+    }];
+}
+
 - (void) setupLifeCycle {
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillEnterForeground) name:UIApplicationWillEnterForegroundNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationDidBecomeActive) name:UIApplicationDidBecomeActiveNotification object:nil];
@@ -322,6 +330,8 @@ const int thresholdMarkerCorners = 5;
     g_mSet = [[NSMutableSet alloc ]init];
     _nurieParams = [NSMutableDictionary dictionary];
     _referenceObjects = [NSMutableSet set];
+    
+    [self requestMicPermission];
 
     result(nil);
 }

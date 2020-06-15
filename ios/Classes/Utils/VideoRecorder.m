@@ -39,6 +39,7 @@ static const int USE_MIC = 1;
     if (self = [super init]) {
         _view = view;
         _scale = UIScreen.mainScreen.scale;
+        _micPermissionDenied = false;
     }
     return self;
 }
@@ -113,7 +114,7 @@ static const int USE_MIC = 1;
 
     _assetWriter = [AVAssetWriter assetWriterWithURL:_outputURL fileType:AVFileTypeQuickTimeMovie error:nil];
     
-    if (useAudio == USE_MIC) {
+    if (!_micPermissionDenied && useAudio == USE_MIC) {
         [self prepareAudioDevice];
     }
 

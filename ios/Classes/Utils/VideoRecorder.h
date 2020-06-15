@@ -21,6 +21,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property SCNView* _Nonnull view;
 @property NSObject<VideoRecorderDelegate>* delegate;
+@property bool micPermissionDenied;
 
 - (nonnull instancetype)initWithView:(nonnull SCNView*)view;
 
