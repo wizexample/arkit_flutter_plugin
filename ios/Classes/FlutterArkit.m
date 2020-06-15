@@ -404,7 +404,7 @@ const int thresholdMarkerCorners = 5;
 - (UIImage*) affine:(UIImage*)input ul:(SCNVector3)ul ur:(SCNVector3)ur bl:(SCNVector3)bl br:(SCNVector3)br {
     CIImage *inCIImage = [[CIImage alloc] initWithCGImage:input.CGImage];
     CIFilter *perspective = [CIFilter filterWithName:@"CIPerspectiveCorrection"];
-    CGFloat scale = UIScreen.mainScreen.scale;
+    CGFloat scale = UIScreen.mainScreen.nativeScale;
     CGFloat height = input.size.height;
     [perspective setValue:[CIVector vectorWithX:ul.x * scale Y:height - ul.y * scale] forKey:@"inputTopLeft"];
     [perspective setValue:[CIVector vectorWithX:ur.x * scale Y:height - ur.y * scale] forKey:@"inputTopRight"];
