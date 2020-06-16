@@ -104,8 +104,9 @@ class ARKitController {
     bool lightEstimationEnabled,
     bool autoFocusEnabled,
     int maximumNumberOfTrackedImages,
-    this.debug,
-  ) {
+    this.debug, {
+    bool needMicPermission = false,
+  }) {
     _channel = MethodChannel('arkit');
     _channel.setMethodCallHandler(_platformCallHandler);
     _channel.invokeMethod<void>('initStartWorldTrackingSessionWithImage', {
@@ -123,6 +124,7 @@ class ARKitController {
       'lightEstimationEnabled': lightEstimationEnabled,
       'autoFocusEnabled': autoFocusEnabled,
       'maximumNumberOfTrackedImages': maximumNumberOfTrackedImages,
+      'needMicPermission': needMicPermission,
     });
   }
 

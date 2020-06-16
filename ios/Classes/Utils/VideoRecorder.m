@@ -43,7 +43,7 @@ static const int REC_STATUS_BUSY = 2;
     if (self = [super init]) {
         _view = view;
         _scale = UIScreen.mainScreen.scale;
-        _micPermissionDenied = false;
+        _micPermissionGranted = false;
     }
     return self;
 }
@@ -122,7 +122,7 @@ static const int REC_STATUS_BUSY = 2;
 
     _assetWriter = [AVAssetWriter assetWriterWithURL:_outputURL fileType:AVFileTypeQuickTimeMovie error:nil];
     
-    if (!_micPermissionDenied && useAudio == USE_MIC) {
+    if (_micPermissionGranted && useAudio == USE_MIC) {
         [self prepareAudioDevice];
     }
 

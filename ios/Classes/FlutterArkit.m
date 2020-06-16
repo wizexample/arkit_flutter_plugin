@@ -131,8 +131,8 @@ const int thresholdMarkerCorners = 5;
 
 - (void) requestMicPermission {
     [AVCaptureDevice requestAccessForMediaType:AVMediaTypeAudio completionHandler:^(bool granted){
-        if (!granted) {
-            self.videoRecorder.micPermissionDenied = true;
+        if (granted) {
+            self.videoRecorder.micPermissionGranted = true;
         }
     }];
 }
@@ -331,7 +331,9 @@ const int thresholdMarkerCorners = 5;
     _nurieParams = [NSMutableDictionary dictionary];
     _referenceObjects = [NSMutableSet set];
     
-    [self requestMicPermission];
+    if ([call.arguments[@"needMicPermission"] boolValue]) {
+        [self requestMicPermission];
+    }
 
     result(nil);
 }
