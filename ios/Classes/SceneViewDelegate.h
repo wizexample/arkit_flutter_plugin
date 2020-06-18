@@ -4,4 +4,5 @@
 
 @interface SceneViewDelegate: NSObject<ARSCNViewDelegate>
 - (instancetype)initWithChannel:(FlutterMethodChannel*) channel controller:(FlutterArkitController*) controller;
+- (void) dispose;
 @end

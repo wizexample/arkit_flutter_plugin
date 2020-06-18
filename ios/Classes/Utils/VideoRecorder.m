@@ -48,6 +48,9 @@ static const int REC_STATUS_BUSY = 2;
     return self;
 }
 
+- (void) dispose {
+    _view = nil;
+}
 
 - (void) startRecord:(NSString*) path useAudio:(int)useAudio {
     if (_isRecording || _isBusy) {

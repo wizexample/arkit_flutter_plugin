@@ -18,6 +18,10 @@
   return self;
 }
 
+- (void) dispose {
+    _controller = nil;
+}
+
 /*
  // Override to create and configure nodes for anchors added to the view's session.
  - (SCNNode *)renderer:(id<SCNSceneRenderer>)renderer nodeForAnchor:(ARAnchor *)anchor {

@@ -67,8 +67,9 @@
 
 @property ARHitTestResult* lastTappedPlane;
 
-
 @end
+
+static NSMutableDictionary* _videoViews;
 
 @implementation FlutterArkitController
 
@@ -123,6 +124,7 @@ const int thresholdMarkerCorners = 5;
 //        testNode.geometry = plane;
 //        testNode.position = SCNVector3Make(0,0, -0.1);
 //        [_fixedPositionLayer addChildNode:testNode];
+        _videoViews = [NSMutableDictionary dictionary];
         
         [self setupLifeCycle];
     }
@@ -143,6 +145,14 @@ const int thresholdMarkerCorners = 5;
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillResignActive) name:UIApplicationWillResignActiveNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationDidEnterBackground) name:UIApplicationDidEnterBackgroundNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillTerminate) name:UIApplicationWillTerminateNotification object:nil];
+}
+
+- (void) removeAppCalback {
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillEnterForegroundNotification object:nil];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidBecomeActiveNotification object:nil];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillResignActiveNotification object:nil];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidEnterBackgroundNotification object:nil];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillTerminateNotification object:nil];
 }
 
 - (void)applicationWillEnterForeground {
@@ -219,8 +229,7 @@ const int thresholdMarkerCorners = 5;
   } else if ([[call method] isEqualToString:@"stopAnimation"]) {
     [self onStopAnimation:call andResult:result];
   } else if ([[call method] isEqualToString:@"dispose"]) {
-    [self.sceneView.session pause];
-    NSLog(@"ARKit is dispose");
+      [self dispose:call result:result];
   } else if ([[call method] isEqualToString:@"initStartWorldTrackingSessionWithImage"]) {
     [self initStartWorldTrackingSessionWithImage:call result:result];
   } else if ([[call method] isEqualToString:@"addImageRunWithConfigAndImage"]) {
@@ -491,7 +500,7 @@ const int thresholdMarkerCorners = 5;
 
 - (void)onAddNode:(FlutterMethodCall*)call result:(FlutterResult)result {
     NSDictionary* geometryArguments = call.arguments[@"geometry"];
-    SCNGeometry* geometry = [GeometryBuilder createGeometry:geometryArguments withDevice: _sceneView.device];
+    SCNGeometry* geometry = [GeometryBuilder createGeometry:geometryArguments call: call.arguments controller:self withDevice: _sceneView.device];
     [self addNodeToSceneWithGeometry:geometry andCall:call andResult:result];
 }
 
@@ -504,7 +513,8 @@ const int thresholdMarkerCorners = 5;
 
 - (void)onGetNodeBoundingBox:(FlutterMethodCall*)call result:(FlutterResult)result {
     NSDictionary* geometryArguments = call.arguments[@"geometry"];
-    SCNGeometry* geometry = [GeometryBuilder createGeometry:geometryArguments withDevice: _sceneView.device];
+    SCNGeometry* geometry = [GeometryBuilder createGeometry:geometryArguments call: call.arguments controller:self withDevice: _sceneView.device];
+
     SCNNode* node = [self getNodeWithGeometry:geometry fromDict:call.arguments];
     SCNVector3 minVector, maxVector;
     [node getBoundingBoxMin:&minVector max:&maxVector];
@@ -809,7 +819,7 @@ const int thresholdMarkerCorners = 5;
 - (void) updateMaterials:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     NSString* name = call.arguments[@"name"];
     SCNNode* node = [_objectsParent childNodeWithName:name recursively:YES];
-    SCNGeometry* geometry = [GeometryBuilder createGeometry:call.arguments withDevice: _sceneView.device];
+    SCNGeometry* geometry = [GeometryBuilder createGeometry:call.arguments call: call.arguments controller:self withDevice: _sceneView];
     node.geometry = geometry;
     result(nil);
 }
@@ -1074,7 +1084,7 @@ const int thresholdMarkerCorners = 5;
     NSString* transformName = call.arguments[@"transformName"];
     NSDictionary* params = call.arguments[@"node"];
     if (transformName == nil || params == nil) return;
-    SCNGeometry* geometry = [GeometryBuilder createGeometry:params[@"geometry"] withDevice: _sceneView.device];
+    SCNGeometry* geometry = [GeometryBuilder createGeometry:params[@"geometry"] call: call.arguments controller:self withDevice: _sceneView.device];
     SCNNode* childNode = [self getNodeWithGeometry:geometry fromDict:params];
     TransformableNode* transformableNode = [[TransformableNode alloc] initWithPlane:_lastTappedPlane node:childNode];
     transformableNode.name = transformName;
@@ -1205,7 +1215,7 @@ const int thresholdMarkerCorners = 5;
     if (dict[@"shape"] != nil) {
         NSDictionary* shapeDict = dict[@"shape"];
         if (shapeDict[@"geometry"] != nil) {
-            shape = [SCNPhysicsShape shapeWithGeometry:[GeometryBuilder createGeometry:shapeDict[@"geometry"] withDevice:_sceneView.device] options:nil];
+            shape = [SCNPhysicsShape shapeWithGeometry:[GeometryBuilder createGeometry:shapeDict[@"geometry"] call: dict controller:self withDevice: _sceneView] options:nil];
         }
     }
     
@@ -1340,8 +1350,42 @@ const int thresholdMarkerCorners = 5;
     }
 }
 
+- (void) dispose:(FlutterMethodCall*)call result:(FlutterResult)result {
+    for (NSString* key in _videoViews) {
+        VideoView* view = _videoViews[key];
+        [view dispose];
+        [view removeFromSuperview];
+    }
+    [_videoViews removeAllObjects];
+    [self disposeVideoNodes:nil];
+    
+    [_videoRecorder dispose];
+    _videoRecorder = nil;
+    [_delegate dispose];
+    _delegate = nil;
+    [self removeAppCalback];
+    [self.sceneView.session pause];
+    NSLog(@"ARKit is dispose");
+    result (nil);
+}
+
+- (void) disposeVideoNodes:(nullable SCNNode*)node {
+    if (node == nil) node = _sceneView.scene.rootNode;
+    for(SCNNode* child in node.childNodes) {
+        if ([child isMemberOfClass:[VideoNode class]]) {
+            [((VideoNode*)child) dispose];
+        }
+        [self disposeVideoNodes:child];
+    }
+}
+
 - (void) recStateChanged:(int)recStatus {
     [_channel invokeMethod: @"onRecStatusChanged" arguments: @{@"recStatus": @(recStatus)}];
+}
+
+- (void) addVideoView:(NSString *)name videoView:(id)videoView {
+    [_videoViews setObject:videoView forKey:name];
+    [[_sceneView superview] addSubview:videoView];
 }
 
 @end
@@ -1473,7 +1517,10 @@ static const CGFloat TRANSFORMABLE_NODE_MAX_SCALE = 2.0;
 
 - (BOOL) centralize:(BOOL)lostTarget sceneView:(SCNView*)sceneView fixedLayer:(SCNNode*) fixedMovieLayer {
     if (_centralizeOnLostTarget) {
-        VideoView *videoView = self.geometry.firstMaterial.diffuse.contents;
+        VideoView *videoView = _videoViews[[self name]];
+        if (videoView == nil) {
+            return false;
+        }
         videoView.doOnReachToEnd = ^ {
             if (self.parentNode == fixedMovieLayer) {
                 self.hidden = YES;
@@ -1542,5 +1589,9 @@ static const CGFloat TRANSFORMABLE_NODE_MAX_SCALE = 2.0;
     return [sceneView unprojectPoint: scr];
 }
 
+- (void) dispose {
+    self.geometry.firstMaterial.diffuse.contents = nil;
+    _originalParentNode = nil;
+}
 
 @end

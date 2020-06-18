@@ -17,6 +17,7 @@ API_AVAILABLE(ios(11.3))
 - (BOOL)checkMarkerNurie:(nonnull ARAnchor*) anchor node: (nonnull SCNNode*) node;
 - (void)setNodeToObjectsParent: (nonnull SCNNode*) node;
 - (void)updateEachFrame;
+- (void)addVideoView:(NSString*) name videoView:(NSObject*) videoView;
 
 @property (readonly, nonatomic, strong, nonnull) ARSCNView *sceneView;
 @property (readonly, nonatomic, strong, nonnull) ARConfiguration *configuration;
@@ -76,5 +77,6 @@ API_AVAILABLE(ios(11.3))
 
 - (void) saveCurrent;
 - (BOOL) centralize:(BOOL)lostTarget sceneView:(SCNView*)sceneView fixedLayer:(SCNNode*) fixedMovieLayer;
+- (void) dispose;
 
 @end

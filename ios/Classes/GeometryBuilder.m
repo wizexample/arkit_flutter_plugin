@@ -2,10 +2,11 @@
 #import "ArkitPlugin.h"
 #import "Color.h"
 #import "DecodableUtils.h"
+#import "FlutterArkit.h"
 
 @implementation GeometryBuilder
 
-+ (SCNGeometry *) createGeometry:(NSDictionary *) geometryArguments withDevice: (NSObject*) device {
++ (SCNGeometry *) createGeometry:(NSDictionary *) geometryArguments call:(NSDictionary *) call controller: (NSObject*)controller withDevice: (NSObject*) device {
     SEL selector = NULL;
     if ([geometryArguments[@"dartType"] isEqualToString:@"ARKitSphere"]) {
         selector = @selector(getSphere:);
@@ -41,26 +42,26 @@
     SCNGeometry *geometry = func(self, selector, geometryArguments, device);
     
     if (geometry != nil) {
-        geometry.materials = [self getMaterials: geometryArguments[@"materials"]];
+        geometry.materials = [self getMaterials: geometryArguments[@"materials"] call: call controller: controller];
     }
     return geometry;
 }
 
-+ (NSArray<SCNMaterial*>*) getMaterials: (NSArray*) materialsString {
++ (NSArray<SCNMaterial*>*) getMaterials: (NSArray*) materialsString call:(NSDictionary *) call controller: (FlutterArkitController*)controller {
     if (materialsString == nil || [materialsString count] == 0)
         return nil;
     NSMutableArray *materials = [NSMutableArray arrayWithCapacity:[materialsString count]];
     for (NSDictionary* material in materialsString) {
-        [materials addObject:[self getMaterial:material]];
+        [materials addObject:[self getMaterial:material call: call controller: controller]];
     }
     return materials;
 }
 
 
-+ (SCNMaterial*) getMaterial: (NSDictionary*) materialString {
++ (SCNMaterial*) getMaterial: (NSDictionary*) materialString call:(NSDictionary *) call controller: (FlutterArkitController*)controller {
     SCNMaterial* material = [SCNMaterial material];
     for(NSString* property in @[@"diffuse", @"ambient", @"specular", @"emission", @"transparent", @"reflective", @"multiply" , @"normal", @"displacement", @"ambientOcclusion", @"selfIllumination", @"metalness", @"roughness"]) {
-        [self applyMaterialProperty:property withPropertyDictionary:materialString and:material];
+        [self applyMaterialProperty:property withPropertyDictionary:materialString call: call and:material controller: controller];
     }
     
     material.shininess = [materialString[@"shininess"] doubleValue];
@@ -78,40 +79,39 @@
     return material;
 }
 
-+ (void) applyMaterialProperty: (NSString*) propertyName withPropertyDictionary: (NSDictionary*) dict and:(SCNMaterial *) material {
++ (void) applyMaterialProperty: (NSString*) propertyName withPropertyDictionary: (NSDictionary*) dict call:(NSDictionary *) call and:(SCNMaterial *) material controller: (FlutterArkitController*)controller {
     NSDictionary* propertyString = dict[propertyName];
     if (propertyString != nil) {
         SCNMaterialProperty *property = [material valueForKey: propertyName];
-        property.contents = [self getMaterialProperty:propertyString];
+        [self setMaterialProperty:property dict: propertyString call: call controller: controller];
     }
 }
 
-+ (id) getMaterialProperty: (NSDictionary*) propertyString {
++ (void) setMaterialProperty:(SCNMaterialProperty*) property dict: (NSDictionary*) propertyString call:(NSDictionary *) call controller: (FlutterArkitController*)controller {
     if (propertyString[@"image"] != nil) {
         UIImage* img = [UIImage imageNamed:propertyString[@"image"]];
-        
         if(img == nil) {
             NSString* asset_path = propertyString[@"image"];
             NSString* path = [[NSBundle mainBundle] pathForResource:[[ArkitPlugin registrar] lookupKeyForAsset:asset_path] ofType:nil];
             img = [UIImage imageNamed: path];
         }
         
-        return img;
+        property.contents =  img;
     } else if (propertyString[@"color"] != nil) {
         NSNumber* color = propertyString[@"color"];
-        return [UIColor fromRGB: [color integerValue]];
+        property.contents =  [UIColor fromRGB: [color integerValue]];
     } else if (propertyString[@"url"] != nil) {
-        return propertyString[@"url"];
+        property.contents =  propertyString[@"url"];
     } else if (propertyString[@"videoProperty"] != nil) {
         NSDictionary* videoProperty = propertyString[@"videoProperty"];
         NSLog(@"####### videoProperty=%@", videoProperty);
-
-        VideoView* videoView = [[VideoView alloc] initWithProperties: videoProperty];
-
-        return videoView;
+        VideoView* videoView = [[VideoView alloc] initWithProperties: property dict:videoProperty];
+        [controller addVideoView:call[@"name"] videoView:videoView];
+        property.contents = videoView.layer;
+        [videoView play];
+    } else {
+        property.contents = nil;
     }
-    
-    return nil;
 }
 
 //Videoループ処理
@@ -263,9 +263,11 @@
 @property int mode;
 @end
 
+static int count;
+
 @implementation VideoView
 
-- (instancetype)initWithProperties:(NSDictionary *)videoProperties {
+- (instancetype)initWithProperties:(SCNMaterialProperty*)property dict: (NSDictionary *)videoProperties {
     NSURL *videoURL = [[NSURL alloc] initFileURLWithPath: videoProperties[@"videoPath"]];
     _isLoop = [videoProperties[@"isLoop"] boolValue];
     NSNumber* tempColor = videoProperties[@"chromaKeyColor"];
@@ -298,13 +300,13 @@
         _library = [device newDefaultLibraryWithBundle:bundle error:nil];
         _pipelineState = [device newComputePipelineStateWithFunction:[_library newFunctionWithName:@"ChromaKeyFilter"] error:nil];
         _threadsPerThreadgroup = MTLSizeMake(16, 16, 1);
-        
+
         _bufferMtkView = [[MTKView alloc] initWithFrame:frame device:device];
         _bufferMtkView.translatesAutoresizingMaskIntoConstraints = false;
         _bufferMtkView.framebufferOnly = false;
         [_bufferMtkView setHidden:true];
         [self addSubview:_bufferMtkView];
-        
+
         _threadgroupsPerGrid = MTLSizeMake(
                                            (int)ceilf((float)frame.size.width)/(float)_threadsPerThreadgroup.width,
                                            (int)ceilf((float)frame.size.height)/(float)_threadsPerThreadgroup.height,
@@ -342,18 +344,35 @@
     [_player pause];
 }
 
+- (void) releaseAll {
+    _player = nil;
+    [_bufferMtkView releaseDrawables];
+    _bufferMtkView.paused = YES;
+    _bufferMtkView.delegate = nil;
+    _bufferMtkView = nil;
+    self.paused = YES;
+    self.enableSetNeedsDisplay = YES;
+    self.delegate = nil;
+    [self releaseDrawables];
+}
+
 - (BOOL) isPlaying {
     return _player.rate != 0 && _player.error == nil;
 }
 
+
 - (void)drawRect:(CGRect)rect {
+    if (count ++ >= 30) {
+        count = 0;
+        NSLog(@"**** drawRect");
+    }
     self.drawableSize = self.bounds.size;
     _bufferMtkView.drawableSize = _bufferMtkView.bounds.size;
 
     id <MTLDevice> device = self.device;
     id <CAMetalDrawable> drawable = self.currentDrawable;
     id <CAMetalDrawable> tempDrawable = _bufferMtkView.currentDrawable;
-    
+
     CMTime time = _player.currentTime;
     CVPixelBufferRef pixelBuffer = [_output copyPixelBufferForItemTime:time itemTimeForDisplay:nil];
     if (pixelBuffer == nil) {
@@ -398,6 +417,13 @@
     } else if (_doOnReachToEnd != nil) {
         _doOnReachToEnd();
     }
+}
+
+- (void) dispose {
+    _doOnReachToEnd = nil;
+    [self pause];
+    [self releaseAll];
+    [self setHidden:true];
 }
 
 @end
