@@ -3,6 +3,7 @@
 @import SceneKit;
 
 #import "VideoRecorder.h"
+#import "GeometryBuilder.h"
 
 API_AVAILABLE(ios(11.3))
 @interface FlutterArkitController : NSObject <FlutterPlatformView, VideoRecorderDelegate>
@@ -77,6 +78,7 @@ API_AVAILABLE(ios(11.3))
 
 - (void) saveCurrent;
 - (BOOL) centralize:(BOOL)lostTarget sceneView:(SCNView*)sceneView fixedLayer:(SCNNode*) fixedMovieLayer;
+- (VideoView*) getVideoView;
 - (void) dispose;
 
 @end

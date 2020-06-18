@@ -794,7 +794,7 @@ const int thresholdMarkerCorners = 5;
         }
     }
     if([node isMemberOfClass:[VideoNode class]]){
-        VideoView *videoView = node.geometry.firstMaterial.diffuse.contents;
+        VideoView* videoView = [((VideoNode*) node) getVideoView];
         if ([call.arguments[@"isPlay"] boolValue]) {
             [videoView play];
         } else {
@@ -1192,8 +1192,8 @@ const int thresholdMarkerCorners = 5;
                 }
             }
         }
-        if([node.geometry.firstMaterial.diffuse.contents isMemberOfClass:[VideoView class]]){
-            VideoView *videoView = node.geometry.firstMaterial.diffuse.contents;
+        if([node isMemberOfClass:[VideoNode class]]) {
+            VideoView* videoView = [((VideoNode*) node) getVideoView];
             if ([dict[@"isPlay"] boolValue]) {
                 [videoView play];
             } else {
@@ -1385,7 +1385,9 @@ const int thresholdMarkerCorners = 5;
 
 - (void) addVideoView:(NSString *)name videoView:(id)videoView {
     [_videoViews setObject:videoView forKey:name];
-    [[_sceneView superview] addSubview:videoView];
+    UIView* superView = [_sceneView superview];
+    [superView addSubview:videoView];
+    [superView sendSubviewToBack:videoView];
 }
 
 @end
@@ -1517,7 +1519,7 @@ static const CGFloat TRANSFORMABLE_NODE_MAX_SCALE = 2.0;
 
 - (BOOL) centralize:(BOOL)lostTarget sceneView:(SCNView*)sceneView fixedLayer:(SCNNode*) fixedMovieLayer {
     if (_centralizeOnLostTarget) {
-        VideoView *videoView = _videoViews[[self name]];
+        VideoView *videoView = [self getVideoView];
         if (videoView == nil) {
             return false;
         }
@@ -1587,6 +1589,10 @@ static const CGFloat TRANSFORMABLE_NODE_MAX_SCALE = 2.0;
     scr.x = left;
     scr.y = top;
     return [sceneView unprojectPoint: scr];
+}
+
+- (VideoView*) getVideoView {
+    return _videoViews[[self name]];
 }
 
 - (void) dispose {
