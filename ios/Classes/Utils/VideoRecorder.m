@@ -6,12 +6,16 @@
 //
 
 #import "VideoRecorder.h"
+#import <sys/utsname.h>
 
 static const int frameRate = 30;
+static const int droppedFrameRate = 20;
 static const int USE_MIC = 1;
 static const int REC_STATUS_IDLE = 0;
 static const int REC_STATUS_RECORDING = 1;
 static const int REC_STATUS_BUSY = 2;
+
+static const NSArray<NSString*>* dropFpsDevices = nil;
 
 @interface VideoRecorder()
 
@@ -19,6 +23,7 @@ static const int REC_STATUS_BUSY = 2;
 @property BOOL isRecording;
 @property CADisplayLink* displayLink;
 @property BOOL isBusy;
+@property int fps;
 
 @property int frameCount;
 @property NSURL* outputURL;
@@ -39,11 +44,26 @@ static const int REC_STATUS_BUSY = 2;
 
 @implementation VideoRecorder
 
++ (void) initialize {
+    dropFpsDevices = @[
+        @"iPhone9,2", // iPhone 7 Plus A1661,A1785,A1786 (CDMA)
+        @"iPhone9,4", // iPhone 7 Plus A1784 (GSM)
+        @"iPad6,11", // iPad 5th Gen WiFi
+        @"iPad 5th Cell", // iPad 5th Gen Cellular
+//        @"iPhone11,8", // iPhone XR (for test, must comment out)
+    ];
+}
+
 - (nonnull instancetype)initWithView:(nonnull SCNView*)view {
     if (self = [super init]) {
         _view = view;
-        _scale = UIScreen.mainScreen.scale;
+        _scale = UIScreen.mainScreen.nativeScale;
         _micPermissionGranted = false;
+        if ([self isDropFpsDevice]) {
+            _fps = droppedFrameRate;
+        } else {
+            _fps = frameRate;
+        }
     }
     return self;
 }
@@ -63,7 +83,7 @@ static const int REC_STATUS_BUSY = 2;
     [self initVideoRecorderWithPath: path useAudio:useAudio];
 
     _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(saveFrameImage)];
-    _displayLink.preferredFramesPerSecond = frameRate;
+    _displayLink.preferredFramesPerSecond = _fps;
     [_displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
 
     NSError *error = nil;
@@ -309,6 +329,18 @@ static const int REC_STATUS_BUSY = 2;
             }
         });
     }
+}
+
+- (BOOL) isDropFpsDevice {
+    struct utsname systemInfo;
+    uname(&systemInfo);
+    NSString* deviceName = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
+    for(NSString* d in dropFpsDevices) {
+        if ([deviceName isEqualToString: d]) {
+            return true;
+        }
+    }
+    return false;
 }
 
 
