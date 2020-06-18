@@ -263,8 +263,6 @@
 @property int mode;
 @end
 
-static int count;
-
 @implementation VideoView
 
 - (instancetype)initWithProperties:(SCNMaterialProperty*)property dict: (NSDictionary *)videoProperties {
@@ -362,10 +360,6 @@ static int count;
 
 
 - (void)drawRect:(CGRect)rect {
-    if (count ++ >= 30) {
-        count = 0;
-        NSLog(@"**** drawRect");
-    }
     self.drawableSize = self.bounds.size;
     _bufferMtkView.drawableSize = _bufferMtkView.bounds.size;
 
