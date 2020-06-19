@@ -303,17 +303,19 @@ class ARKitController {
   Future<bool> toggleScreenRecord(
     String path, {
     ARKitRecordingWithAudio useAudio = ARKitRecordingWithAudio.None,
+    bool resize = false,
   }) {
-    return _channel.invokeMethod<bool>(
-        'toggleScreenRecord', {'path': path, 'useAudio': useAudio._value});
+    return _channel.invokeMethod<bool>('toggleScreenRecord',
+        {'path': path, 'useAudio': useAudio._value, resize: resize});
   }
 
   void startScreenRecord(
     String path, {
     ARKitRecordingWithAudio useAudio = ARKitRecordingWithAudio.None,
+    bool resize = false,
   }) {
-    _channel.invokeMethod<void>(
-        'startScreenRecord', {'path': path, 'useAudio': useAudio._value});
+    _channel.invokeMethod<void>('startScreenRecord',
+        {'path': path, 'useAudio': useAudio._value, 'resize': resize});
   }
 
   void stopScreenRecord() {

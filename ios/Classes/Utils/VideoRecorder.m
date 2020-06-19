@@ -72,7 +72,7 @@ static const NSArray<NSString*>* dropFpsDevices = nil;
     _view = nil;
 }
 
-- (void) startRecord:(NSString*) path useAudio:(int)useAudio {
+- (void) startRecord:(NSString*) path useAudio:(int)useAudio resize:(BOOL) resize {
     if (_isRecording || _isBusy) {
         NSLog(@"startRecord failure: isRecording:%d, isBusy: %d", _isRecording, _isBusy);
         return;
@@ -80,7 +80,7 @@ static const NSArray<NSString*>* dropFpsDevices = nil;
     NSLog(@"startScreenRecord audio:%d", useAudio);
     _isRecording = true;
     [self clearFiles:path];
-    [self initVideoRecorderWithPath: path useAudio:useAudio];
+    [self initVideoRecorderWithPath: path useAudio:useAudio resize:resize];
 
     _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(saveFrameImage)];
     _displayLink.preferredFramesPerSecond = _fps;
@@ -123,9 +123,9 @@ static const NSArray<NSString*>* dropFpsDevices = nil;
     }
 }
 
-- (void) toggleRecord:(NSString*) path useAudio:(int)useAudio {
+- (void) toggleRecord:(NSString*) path useAudio:(int)useAudio resize:(BOOL) resize {
     if (!_isRecording) {
-        [self startRecord:path useAudio:useAudio];
+        [self startRecord:path useAudio:useAudio resize:resize];
     } else {
         [self stopRecord];
     }
@@ -138,7 +138,7 @@ static const NSArray<NSString*>* dropFpsDevices = nil;
     }
 }
 
-- (void) initVideoRecorderWithPath: (NSString*) path useAudio:(int)useAudio{
+- (void) initVideoRecorderWithPath: (NSString*) path useAudio:(int)useAudio resize:(BOOL) resize{
     _frameCount = 0;
     _queue = dispatch_queue_create("makingMovie", DISPATCH_QUEUE_SERIAL);
     _outputURL = [NSURL fileURLWithPath:path];
@@ -149,7 +149,7 @@ static const NSArray<NSString*>* dropFpsDevices = nil;
         [self prepareAudioDevice];
     }
 
-    [self calcPixelSizeForMovie:_view.frame.size scale:_scale];
+    [self calcPixelSizeForMovie:_view.frame.size scale:(resize ? 1 : _scale)];
     NSDictionary* outputSetting = @{AVVideoCodecKey: AVVideoCodecTypeH264, AVVideoWidthKey: @(_movPixelWidth), AVVideoHeightKey: @(_movPixelHeight)};
     _videoInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo outputSettings:outputSetting];
     _videoInput.expectsMediaDataInRealTime = true;
@@ -363,15 +363,9 @@ static const NSArray<NSString*>* dropFpsDevices = nil;
 @implementation UIImage (Crop)
 
 - (UIImage*)cropImage:(CGSize) croppedSize {
-    CGFloat orgWidth = self.size.width;
-    CGFloat orgHeight = self.size.height;
+    UIGraphicsBeginImageContextWithOptions(croppedSize, true, 0.0);
+    [self drawInRect:CGRectMake(0, 0, croppedSize.width, croppedSize.height)];
     
-    CGFloat cropWidth = croppedSize.width;
-    CGFloat cropHeight = croppedSize.height;
-    
-    CGRect cropRect = CGRectMake((orgWidth - cropWidth) / 2, (orgHeight - cropHeight) / 2, cropWidth, cropHeight);
-    UIGraphicsBeginImageContextWithOptions(croppedSize, false, 0.0);
-    [self drawInRect:cropRect];
     UIImage* croppedImage = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
     return croppedImage;

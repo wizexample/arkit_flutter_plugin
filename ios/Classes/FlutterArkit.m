@@ -920,8 +920,9 @@ const int thresholdMarkerCorners = 5;
 - (void) toggleScreenRecord:(FlutterMethodCall*)call andResult:(FlutterResult)result {
     NSString* path = call.arguments[@"path"];
     NSNumber* useAudio = call.arguments[@"useAudio"];
+    BOOL resize = [call.arguments[@"resize"] boolValue];
     if (path != nil) {
-        [_videoRecorder toggleRecord: path useAudio:[useAudio intValue]];
+        [_videoRecorder toggleRecord: path useAudio:[useAudio intValue] resize:resize];
     }
     result(nil);
 }
@@ -929,8 +930,9 @@ const int thresholdMarkerCorners = 5;
 - (void)startScreenRecord:(FlutterMethodCall*)call andResult:(FlutterResult)result {
     NSString* path = call.arguments[@"path"];
     NSNumber* useAudio = call.arguments[@"useAudio"];
+    BOOL resize = [call.arguments[@"resize"] boolValue];
     if (path != nil) {
-        [_videoRecorder startRecord: path useAudio:[useAudio intValue]];
+        [_videoRecorder startRecord: path useAudio:[useAudio intValue] resize:resize];
     }
     result(nil);
 }
