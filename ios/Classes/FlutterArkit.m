@@ -921,8 +921,9 @@ const int thresholdMarkerCorners = 5;
     NSString* path = call.arguments[@"path"];
     NSNumber* useAudio = call.arguments[@"useAudio"];
     BOOL resize = [call.arguments[@"resize"] boolValue];
+    int fps = [call.arguments[@"fps"] intValue];
     if (path != nil) {
-        [_videoRecorder toggleRecord: path useAudio:[useAudio intValue] resize:resize];
+        [_videoRecorder toggleRecord: path useAudio:[useAudio intValue] resize:resize fps:fps];
     }
     result(nil);
 }
@@ -931,8 +932,9 @@ const int thresholdMarkerCorners = 5;
     NSString* path = call.arguments[@"path"];
     NSNumber* useAudio = call.arguments[@"useAudio"];
     BOOL resize = [call.arguments[@"resize"] boolValue];
+    int fps = [call.arguments[@"fps"] intValue];
     if (path != nil) {
-        [_videoRecorder startRecord: path useAudio:[useAudio intValue] resize:resize];
+        [_videoRecorder startRecord: path useAudio:[useAudio intValue] resize:resize fps:fps];
     }
     result(nil);
 }

@@ -6,16 +6,11 @@
 //
 
 #import "VideoRecorder.h"
-#import <sys/utsname.h>
 
-static const int frameRate = 30;
-static const int droppedFrameRate = 20;
 static const int USE_MIC = 1;
 static const int REC_STATUS_IDLE = 0;
 static const int REC_STATUS_RECORDING = 1;
 static const int REC_STATUS_BUSY = 2;
-
-static const NSArray<NSString*>* dropFpsDevices = nil;
 
 @interface VideoRecorder()
 
@@ -23,7 +18,6 @@ static const NSArray<NSString*>* dropFpsDevices = nil;
 @property BOOL isRecording;
 @property CADisplayLink* displayLink;
 @property BOOL isBusy;
-@property int fps;
 
 @property int frameCount;
 @property NSURL* outputURL;
@@ -44,26 +38,11 @@ static const NSArray<NSString*>* dropFpsDevices = nil;
 
 @implementation VideoRecorder
 
-+ (void) initialize {
-    dropFpsDevices = @[
-        @"iPhone9,2", // iPhone 7 Plus A1661,A1785,A1786 (CDMA)
-        @"iPhone9,4", // iPhone 7 Plus A1784 (GSM)
-        @"iPad6,11", // iPad 5th Gen WiFi
-        @"iPad 5th Cell", // iPad 5th Gen Cellular
-//        @"iPhone11,8", // iPhone XR (for test, must comment out)
-    ];
-}
-
 - (nonnull instancetype)initWithView:(nonnull SCNView*)view {
     if (self = [super init]) {
         _view = view;
         _scale = UIScreen.mainScreen.nativeScale;
         _micPermissionGranted = false;
-        if ([self isDropFpsDevice]) {
-            _fps = droppedFrameRate;
-        } else {
-            _fps = frameRate;
-        }
     }
     return self;
 }
@@ -72,18 +51,18 @@ static const NSArray<NSString*>* dropFpsDevices = nil;
     _view = nil;
 }
 
-- (void) startRecord:(NSString*) path useAudio:(int)useAudio resize:(BOOL) resize {
+- (void) startRecord:(NSString*) path useAudio:(int)useAudio resize:(BOOL) resize fps:(int) fps{
     if (_isRecording || _isBusy) {
         NSLog(@"startRecord failure: isRecording:%d, isBusy: %d", _isRecording, _isBusy);
         return;
     }
-    NSLog(@"startScreenRecord audio:%d", useAudio);
+    NSLog(@"startScreenRecord audio:%d, resize: %d, fps: %d", useAudio, resize, fps);
     _isRecording = true;
     [self clearFiles:path];
     [self initVideoRecorderWithPath: path useAudio:useAudio resize:resize];
 
     _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(saveFrameImage)];
-    _displayLink.preferredFramesPerSecond = _fps;
+    _displayLink.preferredFramesPerSecond = fps;
     [_displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
 
     NSError *error = nil;
@@ -123,9 +102,9 @@ static const NSArray<NSString*>* dropFpsDevices = nil;
     }
 }
 
-- (void) toggleRecord:(NSString*) path useAudio:(int)useAudio resize:(BOOL) resize {
+- (void) toggleRecord:(NSString*) path useAudio:(int)useAudio resize:(BOOL) resize fps:(int) fps {
     if (!_isRecording) {
-        [self startRecord:path useAudio:useAudio resize:resize];
+        [self startRecord:path useAudio:useAudio resize:resize fps:fps];
     } else {
         [self stopRecord];
     }
@@ -330,19 +309,6 @@ static const NSArray<NSString*>* dropFpsDevices = nil;
         });
     }
 }
-
-- (BOOL) isDropFpsDevice {
-    struct utsname systemInfo;
-    uname(&systemInfo);
-    NSString* deviceName = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
-    for(NSString* d in dropFpsDevices) {
-        if ([deviceName isEqualToString: d]) {
-            return true;
-        }
-    }
-    return false;
-}
-
 
 @end
 

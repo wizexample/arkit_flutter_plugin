@@ -23,12 +23,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property NSObject<VideoRecorderDelegate>* delegate;
 @property bool micPermissionGranted;
 
-+ (void) initialize;
 - (nonnull instancetype)initWithView:(nonnull SCNView*)view;
-
-- (void) startRecord:(NSString*) path useAudio:(int)useAudio resize:(BOOL) resize;
+- (void) startRecord:(NSString*) path useAudio:(int)useAudio resize:(BOOL) resize fps:(int) fps;
 - (void) stopRecord;
-- (void) toggleRecord:(NSString*) path useAudio:(int)useAudio resize:(BOOL) resize;
+- (void) toggleRecord:(NSString*) path useAudio:(int)useAudio resize:(BOOL) resize fps:(int) fps;
 - (void) dispose;
 
 @end
