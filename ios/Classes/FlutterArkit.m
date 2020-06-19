@@ -8,6 +8,7 @@
 #import "ArkitPlugin.h"
 #import "ARSCNView+Gestures.h"
 #import "VideoRecorder.h"
+#import <sys/utsname.h>
 
 @interface FlutterArkitFactory()
 @property NSObject<FlutterBinaryMessenger>* messenger;
@@ -254,6 +255,8 @@ const int thresholdMarkerCorners = 5;
       [self addTransformableNode: call result: result];
   } else if ([call.method isEqualToString:@"addReferenceObject"]) {
       [self addReferenceObject:call result:result];
+  } else if ([call.method isEqualToString:@"getDeviceInfo"]) {
+      [self getDeviceInfo:call result:result];
   } else {
     result(FlutterMethodNotImplemented);
   }
@@ -294,6 +297,13 @@ const int thresholdMarkerCorners = 5;
 //     [self.sceneView.session runWithConfiguration:[self configuration]];
 //     result(nil);
 // }
+
+- (void) getDeviceInfo:(FlutterMethodCall*)call result:(FlutterResult)result {
+    struct utsname systemInfo;
+    uname(&systemInfo);
+    NSString* deviceName = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
+    result(@{@"deviceName": deviceName,});
+}
 
 - (void)initStartWorldTrackingSessionWithImage:(FlutterMethodCall*)call result:(FlutterResult)result {
     _viewWidth = _sceneView.bounds.size.width;

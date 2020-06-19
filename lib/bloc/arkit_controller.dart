@@ -202,6 +202,12 @@ class ARKitController {
 
   final bool debug;
 
+  Future<ARKitDeviceInfo> getDeviceInfo() async {
+    final Map<String, String> ret =
+        Map<String, String>.from(await _channel.invokeMethod('getDeviceInfo'));
+    return ARKitDeviceInfo.fromMap(ret);
+  }
+
   void dispose() {
     _channel?.invokeMethod<void>('dispose');
   }
@@ -733,5 +739,22 @@ class RecStatus {
   @override
   String toString() {
     return '$_text - $_value';
+  }
+}
+
+class ARKitDeviceInfo {
+  ARKitDeviceInfo._(
+    this.deviceName,
+  );
+
+  static ARKitDeviceInfo fromMap(Map<String, String> map) {
+    return ARKitDeviceInfo._(map['deviceName']);
+  }
+
+  final String deviceName;
+
+  @override
+  String toString() {
+    return 'deviceName: $deviceName';
   }
 }
