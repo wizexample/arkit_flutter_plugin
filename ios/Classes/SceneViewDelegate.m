@@ -4,6 +4,8 @@
 @interface SceneViewDelegate()
 @property FlutterMethodChannel* channel;
 @property FlutterArkitController* controller;
+
+@property NSMutableDictionary* testDict;
 @end
 
 
@@ -14,6 +16,7 @@
   if (self) {
     self.channel = channel;
       self.controller = controller;
+      self.testDict = [NSMutableDictionary dictionary];
   }
   return self;
 }
@@ -58,6 +61,7 @@
       node.name = [NSUUID UUID].UUIDString;
     }
     [_controller setNodeToObjectsParent:node];
+    [_testDict setObject:[NSNumber numberWithInt:0] forKey:node.name];
     
     NSLog(@"**** didAddNodeForAnchor \n%@ \n%@", node, anchor);
     [_controller addNurieObject:anchor node: node];
@@ -68,7 +72,13 @@
 - (void)renderer:(id <SCNSceneRenderer>)renderer didUpdateNode:(SCNNode *)node forAnchor:(ARAnchor *)anchor {
     NSDictionary* params = [self prepareParamsForAnchorEventwithNode:node andAnchor:anchor];
     [_controller checkMarkerNurie:anchor node: node];
-    [_channel invokeMethod: @"didUpdateNodeForAnchor" arguments: params];
+    NSNumber* val =_testDict[node.name];
+    int next = [val intValue] + 1;
+    if (next > 30) {
+        [_channel invokeMethod: @"didUpdateNodeForAnchor" arguments: params];
+        next = 0;
+    }
+    [_testDict setValue:[NSNumber numberWithInt:next] forKey: node.name];
 }
 
 #pragma mark - Helpers
