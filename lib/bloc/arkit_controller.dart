@@ -369,6 +369,10 @@ class ARKitController {
     }
   }
 
+  void func(String method, {dynamic arg}) {
+    _channel.invokeMethod(method, arg);
+  }
+
   void findNurieMarker(
     bool isStart, {
     String nurie,

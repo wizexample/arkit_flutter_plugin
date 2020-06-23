@@ -2,8 +2,8 @@ import 'package:arkit_plugin/arkit_node.dart';
 import 'package:arkit_plugin/geometries/arkit_geometry.dart';
 import 'package:arkit_plugin/light/arkit_light.dart';
 import 'package:arkit_plugin/physics/arkit_physics_body.dart';
+import 'package:arkit_plugin/utils/update_notifier.dart';
 import 'package:arkit_plugin/utils/vector_utils.dart';
-import 'package:flutter/widgets.dart';
 import 'package:vector_math/vector_math_64.dart';
 
 class ARKitVideoNode extends ARKitNode {
@@ -22,7 +22,7 @@ class ARKitVideoNode extends ARKitNode {
     this.centralizeOnLostTarget = false,
     this.marginPercent = 5.0,
     this.durationMilliSec = 150.0,
-  })  : isPlay = ValueNotifier(isPlay),
+  })  : isPlay = UpdateNotifier(isPlay),
         super(
           geometry: geometry,
           physicsBody: physicsBody,
@@ -40,7 +40,7 @@ class ARKitVideoNode extends ARKitNode {
   final double marginPercent;
   final double durationMilliSec;
 
-  final ValueNotifier<bool> isPlay;
+  final UpdateNotifier<bool> isPlay;
 
   @override
   Map<String, dynamic> toMap() => <String, dynamic>{

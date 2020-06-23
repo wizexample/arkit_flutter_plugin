@@ -804,11 +804,10 @@ const int thresholdMarkerCorners = 5;
         }
     }
     if([node isMemberOfClass:[VideoNode class]]){
-        VideoView* videoView = [((VideoNode*) node) getVideoView];
         if ([call.arguments[@"isPlay"] boolValue]) {
-            [videoView play];
+            [((VideoNode*) node) play];
         } else {
-            [videoView pause];
+            [((VideoNode*) node) pause];
         }
     }
     
@@ -1207,11 +1206,10 @@ const int thresholdMarkerCorners = 5;
             }
         }
         if([node isMemberOfClass:[VideoNode class]]) {
-            VideoView* videoView = [((VideoNode*) node) getVideoView];
             if ([dict[@"isPlay"] boolValue]) {
-                [videoView play];
+                [((VideoNode*) node) play];
             } else {
-                [videoView pause];
+                [((VideoNode*) node) pause];
             }
         }
     }
@@ -1513,6 +1511,9 @@ static const CGFloat TRANSFORMABLE_NODE_MAX_SCALE = 2.0;
 
 @end
 
+@interface VideoNode ()
+@property BOOL centralized;
+@end
 
 @implementation VideoNode
 
@@ -1522,6 +1523,22 @@ static const CGFloat TRANSFORMABLE_NODE_MAX_SCALE = 2.0;
     node.margin = [dict[@"marginPercent"] floatValue] / 100;
     node.duration = [dict[@"durationMilliSec"] floatValue] / 1000;
     return node;
+}
+
+- (void) play {
+    [[self getVideoView] play];
+}
+
+- (void) pause {
+    [[self getVideoView] pause];
+    if (_centralizeOnLostTarget && _centralized) {
+        self.hidden = YES;
+        [self removeFromParentNode];
+        [self.originalParentNode addChildNode:self];
+        self.position = self.originalPosition;
+        self.eulerAngles = self.originalEulerAngles;
+        self.scale = self.originalScale;
+    }
 }
 
 - (void) saveCurrent {
@@ -1537,6 +1554,7 @@ static const CGFloat TRANSFORMABLE_NODE_MAX_SCALE = 2.0;
         if (videoView == nil) {
             return false;
         }
+        _centralized = lostTarget;
         videoView.doOnReachToEnd = ^ {
             if (self.parentNode == fixedMovieLayer) {
                 self.hidden = YES;

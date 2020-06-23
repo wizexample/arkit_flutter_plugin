@@ -76,6 +76,9 @@ API_AVAILABLE(ios(11.3))
 
 + (VideoNode* _Nonnull)nodeWithGeometry:(nullable SCNGeometry *)geometry arguments: (NSDictionary*)dict;
 
+- (void) play;
+- (void) pause;
+
 - (void) saveCurrent;
 - (BOOL) centralize:(BOOL)lostTarget sceneView:(SCNView*)sceneView fixedLayer:(SCNNode*) fixedMovieLayer;
 - (VideoView*) getVideoView;
