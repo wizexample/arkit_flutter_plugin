@@ -75,6 +75,8 @@
 
 - (NSDictionary<NSString*, NSString*>*) prepareParamsForAnchorEventwithNode: (SCNNode*) node andAnchor: (ARAnchor*) anchor {
   NSMutableDictionary<NSString*, NSString*>* params = [@{@"node_name": node.name} mutableCopy];
+  NSString *current = [[NSNumber numberWithLongLong:[[NSDate date] timeIntervalSince1970] * 1000] stringValue];
+  params[@"publish"] = current;
   [params addEntriesFromDictionary:[CodableUtils convertARAnchorToDictionary:anchor]];
   return params;
 }

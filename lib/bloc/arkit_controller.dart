@@ -460,7 +460,6 @@ class ARKitController {
         }
         break;
       case 'didAddNodeForAnchor':
-        print('**** didAddNodeForAnchor ${call.arguments}');
         if (onAddNodeForAnchor != null) {
           final anchor = _buildAnchor(call.arguments);
           onAddNodeForAnchor(anchor);
@@ -468,8 +467,15 @@ class ARKitController {
         break;
       case 'didUpdateNodeForAnchor':
         if (onUpdateNodeForAnchor != null) {
+          final int publish = int.parse(call.arguments['publish']);
           final anchor = _buildAnchor(call.arguments);
-          onUpdateNodeForAnchor(anchor);
+          if (!(anchor is ARKitImageAnchor) ||
+              !(anchor as ARKitImageAnchor).isTracked ||
+              DateTime.now().millisecondsSinceEpoch - publish < 10) {
+            onUpdateNodeForAnchor(anchor);
+          } else {
+            print('#### drop update');
+          }
         }
         break;
       case 'nurieMarkerModeChanged':
