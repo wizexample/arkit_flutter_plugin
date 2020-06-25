@@ -85,6 +85,8 @@ class ARKitController {
         .invokeMethod('isARKitWorldTrackingSessionConfigurationSupported');
   }
 
+  static const int _THRESHOLD_MSEC_DROP_UPDATE = 10;
+
   ///
   /// Dynamic loading ARKitImageAnchor
   ///
@@ -471,10 +473,11 @@ class ARKitController {
           final anchor = _buildAnchor(call.arguments);
           if (!(anchor is ARKitImageAnchor) ||
               !(anchor as ARKitImageAnchor).isTracked ||
-              DateTime.now().millisecondsSinceEpoch - publish < 10) {
+              DateTime.now().millisecondsSinceEpoch - publish <
+                  _THRESHOLD_MSEC_DROP_UPDATE) {
             onUpdateNodeForAnchor(anchor);
-          } else {
-            print('#### drop update');
+//          } else {
+//            print('#### drop update');
           }
         }
         break;
