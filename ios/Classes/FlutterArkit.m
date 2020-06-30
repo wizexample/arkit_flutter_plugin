@@ -1519,7 +1519,7 @@ static const CGFloat TRANSFORMABLE_NODE_MAX_SCALE = 2.0;
 
 + (VideoNode* _Nonnull)nodeWithGeometry:(nullable SCNGeometry *)geometry arguments: (NSDictionary*)dict {
     VideoNode* node = [VideoNode nodeWithGeometry:geometry];
-    node.centralizeOnLostTarget = dict[@"centralizeOnLostTarget"];
+    node.centralizeOnLostTarget = [dict[@"centralizeOnLostTarget"] boolValue];
     node.margin = [dict[@"marginPercent"] floatValue] / 100;
     node.duration = [dict[@"durationMilliSec"] floatValue] / 1000;
     return node;

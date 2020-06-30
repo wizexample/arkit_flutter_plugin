@@ -10,7 +10,7 @@ typedef void (^OnReachToEnd)(void);
 
 @end
 
-@interface VideoView: MTKView
+@interface VideoView: MTKView<MTKViewDelegate>
 - (void) play;
 - (void) pause;
 - (BOOL) isPlaying;

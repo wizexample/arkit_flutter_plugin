@@ -107,7 +107,12 @@
         NSLog(@"####### videoProperty=%@", videoProperty);
         VideoView* videoView = [[VideoView alloc] initWithProperties: property dict:videoProperty];
         [controller addVideoView:call[@"name"] videoView:videoView];
-        property.contents = videoView.layer;
+        
+        CALayer *layer = [CALayer layer];
+        layer.frame = CGRectMake(0, 0, videoView.frame.size.width, videoView.frame.size.height);
+        [layer addSublayer:videoView.layer];
+        property.contents = layer;
+        
         [videoView play];
     } else {
         property.contents = nil;
@@ -290,6 +295,7 @@
 
 
         self.framebufferOnly = false;
+        self.translatesAutoresizingMaskIntoConstraints = false;
         [self setOpaque:false];
         self.backgroundColor = UIColor.clearColor;
         
@@ -313,11 +319,11 @@
         AVPlayerItem *playerItem = [[AVPlayerItem alloc] initWithURL: videoURL];
         _player = [[AVPlayer alloc] initWithPlayerItem: playerItem];
         
-       _player.actionAtItemEnd = AVPlayerActionAtItemEndPause;
-       [[NSNotificationCenter defaultCenter] addObserver:self
-                                                selector:@selector(reachToEnd:)
-                                                    name:AVPlayerItemDidPlayToEndTimeNotification
-                                                  object:[_player currentItem]];
+        _player.actionAtItemEnd = AVPlayerActionAtItemEndPause;
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(reachToEnd:)
+                                                     name:AVPlayerItemDidPlayToEndTimeNotification
+                                                   object:[_player currentItem]];
         [_player.currentItem addOutput:_output];
         
         _width = videoTrack.naturalSize.width;
@@ -325,6 +331,7 @@
         
         self.drawableSize = self.bounds.size;
         _bufferMtkView.drawableSize = _bufferMtkView.bounds.size;
+        self.delegate = self;
     }
     return self;
 }
@@ -352,14 +359,15 @@
     self.enableSetNeedsDisplay = YES;
     self.delegate = nil;
     [self releaseDrawables];
+    [_context clearCaches];
+    CFRelease(_colorSpace);
 }
 
 - (BOOL) isPlaying {
     return _player.rate != 0 && _player.error == nil;
 }
 
-
-- (void)drawRect:(CGRect)rect {
+- (void) drawInMTKView:(MTKView *)view {
     self.drawableSize = self.bounds.size;
     _bufferMtkView.drawableSize = _bufferMtkView.bounds.size;
 
@@ -401,8 +409,9 @@
 
     [commandBuffer presentDrawable:drawable];
     [commandBuffer commit];
-    [commandBuffer waitUntilCompleted];
 }
+
+- (void)mtkView:(nonnull MTKView *)view drawableSizeWillChange:(CGSize)size { }
 
 - (void) reachToEnd:(NSNotification *)notification {
     NSLog(@"####### playerItemDidReachEnd=%@", [notification object]);
