@@ -1582,7 +1582,12 @@ static const CGFloat TRANSFORMABLE_NODE_MAX_SCALE = 2.0;
                 SCNVector3 br = [fixedMovieLayer convertPosition:worldBR fromNode:nil];
                 float width = br.x - ul.x;
                 float height = ul.y - br.y;
-                float rate = MIN(width / ((SCNPlane*)self.geometry).width, height / ((SCNPlane*)self.geometry).height);
+                float rate;
+                if (videoView.isHalfMask) {
+                    rate = MIN(width / ((SCNPlane*)self.geometry).width, height / ((SCNPlane*)self.geometry).height * 2);
+                } else {
+                    rate = MIN(width / ((SCNPlane*)self.geometry).width, height / ((SCNPlane*)self.geometry).height);
+                }
 
                 SCNAction* move = [SCNAction moveTo:SCNVector3Zero duration:self.duration];
                 SCNAction* rotate = [SCNAction rotateToX:0 y:0 z:0 duration:self.duration];

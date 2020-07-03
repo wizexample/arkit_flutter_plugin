@@ -14,6 +14,7 @@ typedef void (^OnReachToEnd)(void);
 - (void) play;
 - (void) pause;
 - (BOOL) isPlaying;
+- (BOOL) isHalfMask;
 - (instancetype)initWithProperties:(SCNMaterialProperty*)property dict: (NSDictionary *)videoProperties;
 - (void) dispose;
 @property CGFloat width;

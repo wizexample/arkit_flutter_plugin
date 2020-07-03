@@ -298,7 +298,7 @@
         self.translatesAutoresizingMaskIntoConstraints = false;
         [self setOpaque:false];
         self.backgroundColor = UIColor.clearColor;
-        
+
         _commandQueue = [device newCommandQueue];
         NSBundle* bundle = [NSBundle bundleForClass:[self class]];
         _library = [device newDefaultLibraryWithBundle:bundle error:nil];
@@ -365,6 +365,10 @@
 
 - (BOOL) isPlaying {
     return _player.rate != 0 && _player.error == nil;
+}
+
+- (BOOL) isHalfMask {
+    return _mode == 2;
 }
 
 - (void) drawInMTKView:(MTKView *)view {
