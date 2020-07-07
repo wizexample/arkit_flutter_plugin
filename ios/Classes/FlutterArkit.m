@@ -50,6 +50,8 @@
 @property BOOL forceUserTapOnCenter;
 @property (strong, nonatomic) CIContext* ciContext;
 
+@property UIView* shutterView;
+
 @property SCNNode* objectsParent;
 @property SCNNode* fixedPositionLayer;
 @property SCNNode* fixedMovieLayer;
@@ -90,7 +92,6 @@ const int thresholdMarkerCorners = 5;
     if ([super init]) {
         _viewId = viewId;
         _sceneView = [[ARSCNView alloc] initWithFrame:frame];
-        
         SCNNode* cameraNode = _sceneView.pointOfView;
         cameraNode.name = @":camera";
 
@@ -355,6 +356,15 @@ const int thresholdMarkerCorners = 5;
     if ([call.arguments[@"needMicPermission"] boolValue]) {
         [self requestMicPermission];
     }
+
+    if (_shutterView != nil) {
+        [_shutterView removeFromSuperview];
+        _shutterView = nil;
+    }
+    _shutterView = [[UIView alloc] initWithFrame:_sceneView.frame];
+    [_shutterView setBackgroundColor:UIColor.blackColor];
+    [_shutterView setHidden:true];
+    [_sceneView addSubview: _shutterView];
 
     result(nil);
 }
@@ -916,7 +926,7 @@ const int thresholdMarkerCorners = 5;
     UIImage *image = [_sceneView snapshot];
     UIImageWriteToSavedPhotosAlbum(image, self, @selector(onCaptureImageSaved:didFinishSavingWithError:contextInfo:), nil);
     NSString* sound = call.arguments[@"sound"];
-    NSLog(@"#### sound: %@", sound);
+    [self shutterEffect];
     if (sound != nil) {
         [self playSe:sound];
     }
@@ -934,13 +944,11 @@ const int thresholdMarkerCorners = 5;
     BOOL isRecording = [_videoRecorder isRecording];
     if (isRecording) {
         NSString* sound = call.arguments[@"startSound"];
-        NSLog(@"#### sound: %@", sound);
         if (sound != nil) {
             [self playSe:sound];
         }
     } else {
         NSString* sound = call.arguments[@"stopSound"];
-        NSLog(@"#### sound: %@", sound);
         if (sound != nil) {
             [self playSe:sound];
         }
@@ -958,7 +966,6 @@ const int thresholdMarkerCorners = 5;
         [_videoRecorder startRecord: path useAudio:[useAudio intValue] resize:resize fps:fps];
     }
     NSString* sound = call.arguments[@"sound"];
-    NSLog(@"#### sound: %@", sound);
     if (sound != nil) {
         [self playSe:sound];
     }
@@ -968,7 +975,6 @@ const int thresholdMarkerCorners = 5;
 - (void)stopScreenRecord:(FlutterMethodCall*)call andResult:(FlutterResult)result {
     [_videoRecorder stopRecord];
     NSString* sound = call.arguments[@"sound"];
-    NSLog(@"#### sound: %@", sound);
     if (sound != nil) {
         [self playSe:sound];
     }
@@ -1436,9 +1442,7 @@ const int thresholdMarkerCorners = 5;
 
 - (void) playSe: (NSString*) path {
     AVAudioPlayer* player = [_audioMap objectForKey:path];
-    NSLog(@"#### playSe %@ %@", path, player);
     if (player != nil) {
-        NSLog(@"#### play");
         if (player.isPlaying) {
             [player stop];
         }
@@ -1446,12 +1450,21 @@ const int thresholdMarkerCorners = 5;
         [player play];
     } else {
         NSURL* url = [[NSURL alloc] initFileURLWithPath: path];
-        NSLog(@"#### add %@", url.absoluteString);
         player = [[AVAudioPlayer alloc] initWithContentsOfURL:url error:nil];
         [player setNumberOfLoops:0];
         [_audioMap setObject:player forKey:path];
         [player play];
     }
+}
+
+- (void) shutterEffect {
+    [_shutterView setHidden:false];
+    _shutterView.alpha = 1;
+    [UIView animateWithDuration:0.250 animations:^(void) {
+        _shutterView.alpha = 0;
+    } completion:^(BOOL finished) {
+        [_shutterView setHidden:true];
+    }];
 }
 
 @end
