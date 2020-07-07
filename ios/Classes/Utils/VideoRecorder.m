@@ -15,7 +15,6 @@ static const int REC_STATUS_BUSY = 2;
 @interface VideoRecorder()
 
 @property CGFloat scale;
-@property BOOL isRecording;
 @property CADisplayLink* displayLink;
 @property BOOL isBusy;
 

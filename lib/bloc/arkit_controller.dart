@@ -296,8 +296,8 @@ class ARKitController {
     });
   }
 
-  void screenCapture() {
-    _channel.invokeMethod<bool>('screenCapture');
+  void screenCapture({String sound}) {
+    _channel.invokeMethod<bool>('screenCapture', {'sound': sound});
   }
 
   Future<bool> toggleScreenRecord(
@@ -305,12 +305,16 @@ class ARKitController {
     ARKitRecordingWithAudio useAudio = ARKitRecordingWithAudio.None,
     bool resize = false,
     int fps = 30,
+    String startSound,
+    String stopSound,
   }) {
     return _channel.invokeMethod<bool>('toggleScreenRecord', {
       'path': path,
       'useAudio': useAudio._value,
       'resize': resize,
-      'fps': fps
+      'fps': fps,
+      'startSound': startSound,
+      'stopSound': stopSound
     });
   }
 
@@ -319,17 +323,21 @@ class ARKitController {
     ARKitRecordingWithAudio useAudio = ARKitRecordingWithAudio.None,
     bool resize = false,
     int fps = 30,
+    String sound,
   }) {
     _channel.invokeMethod<void>('startScreenRecord', {
       'path': path,
       'useAudio': useAudio._value,
       'resize': resize,
       'fps': fps,
+      'sound': sound
     });
   }
 
-  void stopScreenRecord() {
-    _channel.invokeMethod<void>('stopScreenRecord');
+  void stopScreenRecord({
+    String sound,
+  }) {
+    _channel.invokeMethod<void>('stopScreenRecord', {'sound': sound});
   }
 
   void addNurie(

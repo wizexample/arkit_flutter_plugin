@@ -65,6 +65,7 @@
 @property NSMutableSet* referenceObjects;
 
 @property VideoRecorder* videoRecorder;
+@property NSMutableDictionary* audioMap;
 
 @property ARHitTestResult* lastTappedPlane;
 
@@ -126,7 +127,8 @@ const int thresholdMarkerCorners = 5;
 //        testNode.position = SCNVector3Make(0,0, -0.1);
 //        [_fixedPositionLayer addChildNode:testNode];
         _videoViews = [NSMutableDictionary dictionary];
-        
+        _audioMap = [NSMutableDictionary dictionary];
+
         [self setupLifeCycle];
     }
     return self;
@@ -913,6 +915,11 @@ const int thresholdMarkerCorners = 5;
 - (void) screenCapture:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     UIImage *image = [_sceneView snapshot];
     UIImageWriteToSavedPhotosAlbum(image, self, @selector(onCaptureImageSaved:didFinishSavingWithError:contextInfo:), nil);
+    NSString* sound = call.arguments[@"sound"];
+    NSLog(@"#### sound: %@", sound);
+    if (sound != nil) {
+        [self playSe:sound];
+    }
     result(nil);
 }
 
@@ -924,6 +931,21 @@ const int thresholdMarkerCorners = 5;
     if (path != nil) {
         [_videoRecorder toggleRecord: path useAudio:[useAudio intValue] resize:resize fps:fps];
     }
+    BOOL isRecording = [_videoRecorder isRecording];
+    if (isRecording) {
+        NSString* sound = call.arguments[@"startSound"];
+        NSLog(@"#### sound: %@", sound);
+        if (sound != nil) {
+            [self playSe:sound];
+        }
+    } else {
+        NSString* sound = call.arguments[@"stopSound"];
+        NSLog(@"#### sound: %@", sound);
+        if (sound != nil) {
+            [self playSe:sound];
+        }
+    }
+
     result(nil);
 }
 
@@ -935,11 +957,21 @@ const int thresholdMarkerCorners = 5;
     if (path != nil) {
         [_videoRecorder startRecord: path useAudio:[useAudio intValue] resize:resize fps:fps];
     }
+    NSString* sound = call.arguments[@"sound"];
+    NSLog(@"#### sound: %@", sound);
+    if (sound != nil) {
+        [self playSe:sound];
+    }
     result(nil);
 }
 
 - (void)stopScreenRecord:(FlutterMethodCall*)call andResult:(FlutterResult)result {
     [_videoRecorder stopRecord];
+    NSString* sound = call.arguments[@"sound"];
+    NSLog(@"#### sound: %@", sound);
+    if (sound != nil) {
+        [self playSe:sound];
+    }
     result(nil);
 }
 
@@ -1400,6 +1432,26 @@ const int thresholdMarkerCorners = 5;
     UIView* superView = [_sceneView superview];
     [superView addSubview:videoView];
     [superView sendSubviewToBack:videoView];
+}
+
+- (void) playSe: (NSString*) path {
+    AVAudioPlayer* player = [_audioMap objectForKey:path];
+    NSLog(@"#### playSe %@ %@", path, player);
+    if (player != nil) {
+        NSLog(@"#### play");
+        if (player.isPlaying) {
+            [player stop];
+        }
+        [player setCurrentTime:0];
+        [player play];
+    } else {
+        NSURL* url = [[NSURL alloc] initFileURLWithPath: path];
+        NSLog(@"#### add %@", url.absoluteString);
+        player = [[AVAudioPlayer alloc] initWithContentsOfURL:url error:nil];
+        [player setNumberOfLoops:0];
+        [_audioMap setObject:player forKey:path];
+        [player play];
+    }
 }
 
 @end
