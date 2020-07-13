@@ -925,9 +925,9 @@ const int thresholdMarkerCorners = 5;
 - (void) screenCapture:(FlutterMethodCall*)call andResult:(FlutterResult)result{
     UIImage *image = [_sceneView snapshot];
     UIImageWriteToSavedPhotosAlbum(image, self, @selector(onCaptureImageSaved:didFinishSavingWithError:contextInfo:), nil);
-    NSString* sound = call.arguments[@"sound"];
+    NSString* sound = (NSString* )call.arguments[@"sound"];
     [self shutterEffect];
-    if (sound != nil) {
+    if (![sound isMemberOfClass:[NSNull class]]) {
         [self playSe:sound];
     }
     result(nil);
@@ -944,12 +944,12 @@ const int thresholdMarkerCorners = 5;
     BOOL isRecording = [_videoRecorder isRecording];
     if (isRecording) {
         NSString* sound = call.arguments[@"startSound"];
-        if (sound != nil) {
+        if (![sound isMemberOfClass:[NSNull class]]) {
             [self playSe:sound];
         }
     } else {
         NSString* sound = call.arguments[@"stopSound"];
-        if (sound != nil) {
+        if (![sound isMemberOfClass:[NSNull class]]) {
             [self playSe:sound];
         }
     }
@@ -966,7 +966,7 @@ const int thresholdMarkerCorners = 5;
         [_videoRecorder startRecord: path useAudio:[useAudio intValue] resize:resize fps:fps];
     }
     NSString* sound = call.arguments[@"sound"];
-    if (sound != nil) {
+    if (![sound isMemberOfClass:[NSNull class]]) {
         [self playSe:sound];
     }
     result(nil);
@@ -975,7 +975,7 @@ const int thresholdMarkerCorners = 5;
 - (void)stopScreenRecord:(FlutterMethodCall*)call andResult:(FlutterResult)result {
     [_videoRecorder stopRecord];
     NSString* sound = call.arguments[@"sound"];
-    if (sound != nil) {
+    if (![sound isMemberOfClass:[NSNull class]]) {
         [self playSe:sound];
     }
     result(nil);
